@@ -6,6 +6,8 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
@@ -37,18 +39,25 @@ func parseDoc(res *http.Response) ([]string, error) {
 		return jsSRC, fmt.Errorf("could not read HTML with goquery: %w", err)
 	}
 
-	// eventually add complete urls...
+	baseURL := getAbs(res)
+
 	doc.Find("script").Each(func(i int, s *goquery.Selection) {
 		if value, ok := s.Attr("src"); ok {
-			jsSRC = append(jsSRC, value)
+			jsSRC = append(jsSRC, baseURL + value)
 		}
 	})
-	if jsSRC != nil {
+	if len(jsSRC) != 0 {
 		return jsSRC, nil
 	}
 
 	return jsSRC, fmt.Errorf("no src found on page")
 
+}
+
+func getAbs(res *http.Response) string {
+	base := *res.Request.URL
+	abs := base.String()
+	return strings.TrimSuffix(abs, "/")
 }
 
 func assertErrorToNilf(msg string, err error) {
@@ -76,6 +85,17 @@ func getUA() []string {
 	}
 }
 
+func writeLinks(scripts []string) error {
+	f, err := os.Create("jsLinks.txt")
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	for _, v := range scripts {
+		fmt.Fprintln(f, v)
+	}
+	return nil
+}
 
 func main() {
 	url := flag.String("url", "https://go.dev/", "url to get JavaScript from")
@@ -100,6 +120,10 @@ func main() {
 	assertErrorToNilf("could not parse HTML: %s", err)
 	fmt.Println("scripts:", scripts)
 
+	// write to file
+	err = writeLinks(scripts)
+	assertErrorToNilf("could not write to file: %s", err)
+	
 	
 
 }
