@@ -14,6 +14,11 @@ import (
 )
 
 
+type Site struct {
+	ScriptSRC []string
+	Scripts []string
+}
+
 func makeRequest(url string, client *http.Client) (*http.Response, error) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -33,6 +38,7 @@ func makeRequest(url string, client *http.Client) (*http.Response, error) {
 func parseDoc(res *http.Response) ([]string, error) {
 	var jsSRC []string
 
+	site := Site{}
 	defer res.Body.Close()
 	doc, err := goquery.NewDocumentFromReader(res.Body)
 	if err != nil {
@@ -50,12 +56,38 @@ func parseDoc(res *http.Response) ([]string, error) {
 			}
 		}
 	})
+	site.ScriptSRC = jsSRC
 	if len(jsSRC) != 0 {
 		return jsSRC, nil
 	}
 
 	return jsSRC, fmt.Errorf("no src found on page")
+}
 
+func getJS(client *http.Client, scriptSRC []string) []string {
+	var jsScripts []string
+	for _, s := range scriptSRC {
+		log.Println("script name is:", s)
+		res, err := makeRequest(s, client)
+		assertErrorToNilf("could not make script request: %s", err)
+		script := parseScripts(res) // error handle
+		jsScripts = append(jsScripts, script)
+	}
+	return jsScripts
+}
+
+func parseScripts(res *http.Response) string {
+	defer res.Body.Close()
+	doc, err := goquery.NewDocumentFromReader(res.Body)
+	if err != nil {
+		log.Println("error with script parsing...")
+	}
+	script := doc.Find("body").Text()
+
+	if err != nil {
+		log.Println("error with script writing")
+	}
+	return script
 }
 
 func getAbs(res *http.Response) string {
@@ -89,8 +121,8 @@ func getUA() []string {
 	}
 }
 
-func writeLinks(scripts []string) error {
-	f, err := os.Create("jsLinks.txt")
+func writeFile(scripts []string, fileName string) error {
+	f, err := os.Create(fileName)
 	if err != nil {
 		return err
 	}
@@ -107,6 +139,8 @@ func main() {
 	pw := flag.Bool("pw", false, "run playwright for JS-intensive sites (default is false")
 	flag.Parse()
 
+	start := time.Now()
+
 	_ = pw 
 
 	client := &http.Client{
@@ -117,18 +151,29 @@ func main() {
 	}
 
 	res, err := makeRequest(*url, client)
-	assertErrorToNilf("could not launch browser: %s", err)
+	assertErrorToNilf("could not make request: %s", err)
 
+	site := Site{}
 	// parse
-	scripts, err := parseDoc(res)
+	scriptSRC, err := parseDoc(res)
 	assertErrorToNilf("could not parse HTML: %s", err)
-	fmt.Println("scripts:", scripts)
 
-	// write to file
-	err = writeLinks(scripts)
+	site.ScriptSRC = scriptSRC
+
+	// write to file (add a flag for this)
+	err = writeFile(scriptSRC, "jsLinks.txt")
 	assertErrorToNilf("could not write to file: %s", err)
 	
-	
+	// get JS
+	jsScripts := getJS(client, scriptSRC)
+	site.Scripts = jsScripts
 
+	// write to file // need to separate by url
+	err = writeFile(jsScripts, "JS.txt")
+	assertErrorToNilf("could not write to file: %s", err)
+
+	fmt.Printf("\ntook: %f seconds\n", time.Since(start).Seconds())
 }
+
+
 
