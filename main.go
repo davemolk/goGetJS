@@ -36,59 +36,77 @@ func makeRequest(url string, client *http.Client) (*http.Response, error) {
 	return res, nil
 }
 
-func parseDoc(res *http.Response) ([]string, error) {
-	var jsSRC []string
+func randomUA() string {
+	userAgents := getUA()
+	r := rand.New(rand.NewSource(time.Now().Unix()))
+	rando := r.Intn(len(userAgents))
 
-	site := &Site{}
+	return userAgents[rando]
+}
+
+func getUA() []string {
+	return []string{
+		"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.127 Safari/537.36",
+		"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/603.3.8 (KHTML, like Gecko)",
+		"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6) AppleWebKit/601.7.7 (KHTML, like Gecko) Version/9.1.2 Safari/601.7.7",
+		"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.127 Safari/537.36",
+		"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.54 Safari/537.36",
+		"Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:99.0) Gecko/20100101 Firefox/99.0",
+	}
+}
+
+func parseDoc(res *http.Response) ([]string, []string, error) {
+	scriptsSRC := []string{}
+	scriptsNoSRC := []string{}
+	
 	defer res.Body.Close()
 	doc, err := goquery.NewDocumentFromReader(res.Body)
 	if err != nil {
-		return jsSRC, fmt.Errorf("could not read HTML with goquery: %w", err)
+		return scriptsSRC, scriptsNoSRC, fmt.Errorf("could not read HTML with goquery: %w", err)
 	}
 
-	baseURL := getAbs(res)
+	baseURL := getAbsURL(res)
 
 	doc.Find("script").Each(func(i int, s *goquery.Selection) {
+		// scripts with src
 		if value, ok := s.Attr("src"); ok {
 			if !strings.HasPrefix(value, "http") {
-				jsSRC = append(jsSRC, baseURL + value)
+				scriptsSRC = append(scriptsSRC, baseURL + value)
 			} else {
-				jsSRC = append(jsSRC, value)
+				scriptsSRC = append(scriptsSRC, value)
 			}
 		} else {
-			// print the text string -- need to get a name for it...
-			
-			// site.Scripts = append(site.Scripts, s.Text())
-			// fmt.Println("site.Scripts on page search...\n", site.Scripts)
-			scriptByte := []byte(s.Text())
-			scriptName := s.Text()[:20] + ".js"
+			// scripts without src
+			script := strings.TrimSpace(s.Text())
+			scriptsNoSRC = append(scriptsNoSRC, script)
+
+			// write to file			
+			scriptByte := []byte(script)
+			// not great but works for now...
+			scriptName := script[:20] + ".js"
 			if err := os.WriteFile(scriptName, scriptByte, 0644); err != nil {
 				log.Println("within write anon script", err)
 			}
 		}
 	})
 
-	// TODO grab script content where there is no src
-	site.ScriptSRC = jsSRC
-	if len(jsSRC) != 0 {
-		return jsSRC, nil
+	if len(scriptsSRC) != 0 {
+		return scriptsSRC, scriptsNoSRC, nil
 	}
 
-
-	return jsSRC, fmt.Errorf("no src found on page")
+	return scriptsSRC, scriptsNoSRC, fmt.Errorf("no src found on page")
 }
 
 func getJS(client *http.Client, scriptSRC []string) ([]string, error) {
-	var jsScripts []string
+	jsScripts := []string{}
 	for _, s := range scriptSRC {
-		log.Println("script name is:", s)
 		res, err := makeRequest(s, client)
 		if err != nil {
 			return jsScripts, fmt.Errorf("could not make script request: %s", err)
 		}
 		script, err := parseScripts(res)
 		if err != nil {
-			log.Printf("no script available: %s\n", err)
+			return jsScripts, fmt.Errorf("no script available: %s", err)
 		}
 		jsScripts = append(jsScripts, script)
 	}
@@ -106,7 +124,7 @@ func parseScripts(res *http.Response) (string, error) {
 	url := currentURL.String()
 
 	if script != "" {
-		err := writeScripts(script, url) // flag for this
+		err := writeScripts(script, url)
 		if err != nil {
 			return script, fmt.Errorf("unable to write script file: %s", err)
 		}
@@ -117,7 +135,7 @@ func parseScripts(res *http.Response) (string, error) {
 }
 
 func writeScripts(script, url string) error {
-	r := regexp.MustCompile(`[\w-]+(\.js)?$`)
+	r := regexp.MustCompile(`[\w-]+(\.js)?$`) // need to expand? 
 	fileName := r.FindString(url)
 	scriptByte := []byte(script)
 	if err := os.WriteFile(fileName, scriptByte, 0644); err != nil {
@@ -126,7 +144,7 @@ func writeScripts(script, url string) error {
 	return nil
 }
 
-func getAbs(res *http.Response) string {
+func getAbsURL(res *http.Response) string {
 	base := *res.Request.URL
 	abs := base.String()
 	return strings.TrimSuffix(abs, "/")
@@ -135,25 +153,6 @@ func getAbs(res *http.Response) string {
 func assertErrorToNilf(msg string, err error) {
 	if err != nil {
 		log.Fatalf(msg, err)
-	}
-}
-
-func randomUA() string {
-	userAgents := getUA()
-	r := rand.New(rand.NewSource(time.Now().Unix()))
-	rando := r.Intn(len(userAgents))
-
-	return userAgents[rando]
-}
-
-func getUA() []string {
-	return []string{
-		"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.127 Safari/537.36",
-		"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/603.3.8 (KHTML, like Gecko)",
-		"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6) AppleWebKit/601.7.7 (KHTML, like Gecko) Version/9.1.2 Safari/601.7.7",
-		"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.127 Safari/537.36",
-		"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.54 Safari/537.36",
-		"Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:99.0) Gecko/20100101 Firefox/99.0",
 	}
 }
 
@@ -188,23 +187,23 @@ func main() {
 
 	res, err := makeRequest(*url, client)
 	assertErrorToNilf("could not make request: %s", err)
-
-	site := Site{}
-	// parse
-	scriptSRC, err := parseDoc(res)
+	
+	// parse site
+	scriptSRC, scriptsNoSRC, err := parseDoc(res)
 	assertErrorToNilf("could not parse HTML: %s", err)
 
+	site := Site{}
 	site.ScriptSRC = scriptSRC
+	site.Scripts = scriptsNoSRC
 
-	// write to file (add a flag for this)
-	err = writeFile(scriptSRC, "jsLinks.txt")
-	assertErrorToNilf("could not write to file: %s", err)
+	// write to file
+	err = writeFile(scriptSRC, "scriptSRC.txt")
+	assertErrorToNilf("could not write src list to file: %s", err)
 	
 	// get JS // goroutines
 	jsScripts, err := getJS(client, scriptSRC)
 	assertErrorToNilf("could not make script request: %s", err)
 	site.Scripts = append(site.Scripts, jsScripts...)
-	// _ = jsScripts
 
 	fmt.Printf("\ntook: %f seconds\n", time.Since(start).Seconds())
 }
