@@ -39,7 +39,7 @@ func makeRequest(url string, client *http.Client) (*http.Response, error) {
 func parseDoc(res *http.Response) ([]string, error) {
 	var jsSRC []string
 
-	site := Site{}
+	site := &Site{}
 	defer res.Body.Close()
 	doc, err := goquery.NewDocumentFromReader(res.Body)
 	if err != nil {
@@ -55,6 +55,16 @@ func parseDoc(res *http.Response) ([]string, error) {
 			} else {
 				jsSRC = append(jsSRC, value)
 			}
+		} else {
+			// print the text string -- need to get a name for it...
+			
+			// site.Scripts = append(site.Scripts, s.Text())
+			// fmt.Println("site.Scripts on page search...\n", site.Scripts)
+			scriptByte := []byte(s.Text())
+			scriptName := s.Text()[:20] + ".js"
+			if err := os.WriteFile(scriptName, scriptByte, 0644); err != nil {
+				log.Println("within write anon script", err)
+			}
 		}
 	})
 
@@ -63,6 +73,7 @@ func parseDoc(res *http.Response) ([]string, error) {
 	if len(jsSRC) != 0 {
 		return jsSRC, nil
 	}
+
 
 	return jsSRC, fmt.Errorf("no src found on page")
 }
@@ -192,11 +203,8 @@ func main() {
 	// get JS // goroutines
 	jsScripts, err := getJS(client, scriptSRC)
 	assertErrorToNilf("could not make script request: %s", err)
-	site.Scripts = jsScripts
-
-	// write to file // goroutines
-	// err = writeFile(jsScripts, "JS.txt")
-	// assertErrorToNilf("could not write to file: %s", err)
+	site.Scripts = append(site.Scripts, jsScripts...)
+	// _ = jsScripts
 
 	fmt.Printf("\ntook: %f seconds\n", time.Since(start).Seconds())
 }
