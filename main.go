@@ -71,6 +71,9 @@ func parseDoc(res *http.Response) ([]string, []string, error) {
 		// scripts with src
 		if value, ok := s.Attr("src"); ok {
 			if !strings.HasPrefix(value, "http") {
+				if !strings.HasPrefix(value, "/") {
+					value = "/" + value
+				}
 				scriptsSRC = append(scriptsSRC, baseURL + value)
 			} else {
 				scriptsSRC = append(scriptsSRC, value)
