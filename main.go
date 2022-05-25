@@ -15,11 +15,6 @@ import (
 )
 
 
-type Site struct {
-	ScriptSRC []string
-	Scripts []string
-}
-
 func makeRequest(url string, client *http.Client) (*http.Response, error) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -55,14 +50,14 @@ func getUA() []string {
 	}
 }
 
-func parseDoc(res *http.Response) ([]string, []string, error) {
+func parseDoc(res *http.Response) ([]string, error) {
 	scriptsSRC := []string{}
-	scriptsNoSRC := []string{}
+	// scriptsNoSRC := []string{}
 	
 	defer res.Body.Close()
 	doc, err := goquery.NewDocumentFromReader(res.Body)
 	if err != nil {
-		return scriptsSRC, scriptsNoSRC, fmt.Errorf("could not read HTML with goquery: %w", err)
+		return scriptsSRC, fmt.Errorf("could not read HTML with goquery: %w", err)
 	}
 
 	baseURL := getAbsURL(res)
@@ -70,6 +65,9 @@ func parseDoc(res *http.Response) ([]string, []string, error) {
 	doc.Find("script").Each(func(i int, s *goquery.Selection) {
 		// scripts with src
 		if value, ok := s.Attr("src"); ok {
+			if !strings.HasPrefix(value, "/") {
+				value = "/" + value
+			}
 			if !strings.HasPrefix(value, "http") {
 				scriptsSRC = append(scriptsSRC, baseURL + value)
 			} else {
@@ -78,7 +76,7 @@ func parseDoc(res *http.Response) ([]string, []string, error) {
 		} else {
 			// scripts without src
 			script := strings.TrimSpace(s.Text())
-			scriptsNoSRC = append(scriptsNoSRC, script)
+			// scriptsNoSRC = append(scriptsNoSRC, script)
 
 			// write to file			
 			scriptByte := []byte(script)
@@ -91,11 +89,12 @@ func parseDoc(res *http.Response) ([]string, []string, error) {
 	})
 
 	if len(scriptsSRC) != 0 {
-		return scriptsSRC, scriptsNoSRC, nil
+		return scriptsSRC, nil
 	}
 
-	return scriptsSRC, scriptsNoSRC, fmt.Errorf("no src found on page")
+	return scriptsSRC, fmt.Errorf("no src found on page")
 }
+
 
 func getJS(client *http.Client, scriptSRC []string) ([]string, error) {
 	jsScripts := []string{}
@@ -189,21 +188,21 @@ func main() {
 	assertErrorToNilf("could not make request: %s", err)
 	
 	// parse site
-	scriptSRC, scriptsNoSRC, err := parseDoc(res)
+	scriptSRC, err := parseDoc(res)
 	assertErrorToNilf("could not parse HTML: %s", err)
 
-	site := Site{}
-	site.ScriptSRC = scriptSRC
-	site.Scripts = scriptsNoSRC
-
+	
 	// write to file
 	err = writeFile(scriptSRC, "scriptSRC.txt")
 	assertErrorToNilf("could not write src list to file: %s", err)
 	
 	// get JS // goroutines
+
+	
 	jsScripts, err := getJS(client, scriptSRC)
 	assertErrorToNilf("could not make script request: %s", err)
-	site.Scripts = append(site.Scripts, jsScripts...)
+	_ = jsScripts
+	// site.Scripts = append(site.Scripts, jsScripts...)
 
 	fmt.Printf("\ntook: %f seconds\n", time.Since(start).Seconds())
 }
