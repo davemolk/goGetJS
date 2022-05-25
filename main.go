@@ -10,10 +10,10 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
+	"golang.org/x/sync/errgroup"
 )
 
 
@@ -69,7 +69,7 @@ func parseDoc(res *http.Response) ([]string, error) {
 		if value, ok := s.Attr("src"); ok {
 			if !strings.HasPrefix(value, "http") {
 				if !strings.HasPrefix(value, "/") {
-					value = "/" + value
+					value = fmt.Sprintf("/%s", value)
 				}
 				scriptsSRC = append(scriptsSRC, baseURL + value)
 			} else {
@@ -196,15 +196,27 @@ func main() {
 	assertErrorToNilf("could not write src list to file: %s", err)
 	
 	// get JS // goroutines
-	var wg sync.WaitGroup
-	wg.Add(len(scriptSRC))
+	// var wg sync.WaitGroup
+	// wg.Add(len(scriptSRC))
+	// for _, url := range scriptSRC {
+	// 	go func (u string) {
+	// 		defer wg.Done()
+	// 		getJS(client, u) // not handling error yet
+	// 	}(url)
+	// }
+	// wg.Wait()
+
+	g := new(errgroup.Group)
 	for _, url := range scriptSRC {
-		go func (u string) {
-			defer wg.Done()
-			getJS(client, u) // not handling error yet
-		}(url)
+		url := url
+		g.Go(func() error {
+			err := getJS(client, url)
+			return err
+		})
 	}
-	wg.Wait()
+	if err := g.Wait(); err != nil {
+		log.Println("error fetching script: ", err)
+	}
 
 	fmt.Printf("\ntook: %f seconds\n", time.Since(start).Seconds())
 }

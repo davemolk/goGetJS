@@ -2,7 +2,10 @@ module github.com/davemolk/goGetJS
 
 go 1.18
 
-require github.com/PuerkitoBio/goquery v1.8.0
+require (
+	github.com/PuerkitoBio/goquery v1.8.0
+	golang.org/x/sync v0.0.0-20220513210516-0976fa681c29
+)
 
 require (
 	github.com/andybalholm/cascadia v1.3.1 // indirect
