@@ -9,6 +9,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
@@ -197,11 +198,18 @@ func main() {
 	assertErrorToNilf("could not write src list to file: %s", err)
 	
 	// get JS // goroutines
-
-	
-	jsScripts, err := getJS(client, scriptSRC)
-	assertErrorToNilf("could not make script request: %s", err)
-	_ = jsScripts
+	var wg sync.WaitGroup
+	for i := 1; i <= len(scriptSRC); i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			getJS(client, scriptSRC)
+		}()
+	}
+	wg.Wait()
+	// jsScripts, err := getJS(client, scriptSRC)
+	// assertErrorToNilf("could not make script request: %s", err)
+	// _ = jsScripts
 	// site.Scripts = append(site.Scripts, jsScripts...)
 
 	fmt.Printf("\ntook: %f seconds\n", time.Since(start).Seconds())
