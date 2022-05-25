@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -61,7 +62,9 @@ func parseDoc(res *http.Response) ([]string, error) {
 
 	baseURL := getAbsURL(res)
 
-	doc.Find("script").Each(func(i int, s *goquery.Selection) {
+	j := 0
+
+	doc.Find("script").Each(func(i int, s *goquery.Selection) {	
 		// scripts with src
 		if value, ok := s.Attr("src"); ok {
 			if !strings.HasPrefix(value, "http") {
@@ -78,8 +81,8 @@ func parseDoc(res *http.Response) ([]string, error) {
 
 			// write to file			
 			scriptByte := []byte(script)
-			// not great but works for now...
-			scriptName := script[:20] + ".js"
+			scriptName := fmt.Sprintf("anon%s.js", strconv.Itoa(j))
+			j++
 			if err := os.WriteFile(scriptName, scriptByte, 0644); err != nil {
 				log.Println("within write anon script", err)
 			}
