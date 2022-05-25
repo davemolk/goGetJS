@@ -8,17 +8,14 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
 )
 
-
-type Site struct {
-	ScriptSRC []string
-	Scripts []string
-}
 
 func makeRequest(url string, client *http.Client) (*http.Response, error) {
 	req, err := http.NewRequest("GET", url, nil)
@@ -55,19 +52,19 @@ func getUA() []string {
 	}
 }
 
-func parseDoc(res *http.Response) ([]string, []string, error) {
-	scriptsSRC := []string{}
-	scriptsNoSRC := []string{}
-	
+func parseDoc(res *http.Response) ([]string, error) {
+	scriptsSRC := []string{}	
 	defer res.Body.Close()
 	doc, err := goquery.NewDocumentFromReader(res.Body)
 	if err != nil {
-		return scriptsSRC, scriptsNoSRC, fmt.Errorf("could not read HTML with goquery: %w", err)
+		return scriptsSRC, fmt.Errorf("could not read HTML with goquery: %w", err)
 	}
 
 	baseURL := getAbsURL(res)
 
-	doc.Find("script").Each(func(i int, s *goquery.Selection) {
+	j := 0
+
+	doc.Find("script").Each(func(i int, s *goquery.Selection) {	
 		// scripts with src
 		if value, ok := s.Attr("src"); ok {
 			if !strings.HasPrefix(value, "http") {
@@ -81,12 +78,11 @@ func parseDoc(res *http.Response) ([]string, []string, error) {
 		} else {
 			// scripts without src
 			script := strings.TrimSpace(s.Text())
-			scriptsNoSRC = append(scriptsNoSRC, script)
 
 			// write to file			
 			scriptByte := []byte(script)
-			// not great but works for now...
-			scriptName := script[:20] + ".js"
+			scriptName := fmt.Sprintf("anon%s.js", strconv.Itoa(j))
+			j++
 			if err := os.WriteFile(scriptName, scriptByte, 0644); err != nil {
 				log.Println("within write anon script", err)
 			}
@@ -94,33 +90,32 @@ func parseDoc(res *http.Response) ([]string, []string, error) {
 	})
 
 	if len(scriptsSRC) != 0 {
-		return scriptsSRC, scriptsNoSRC, nil
+		return scriptsSRC, nil
 	}
 
-	return scriptsSRC, scriptsNoSRC, fmt.Errorf("no src found on page")
+	return scriptsSRC, fmt.Errorf("no src found on page")
 }
 
-func getJS(client *http.Client, scriptSRC []string) ([]string, error) {
-	jsScripts := []string{}
-	for _, s := range scriptSRC {
-		res, err := makeRequest(s, client)
-		if err != nil {
-			return jsScripts, fmt.Errorf("could not make script request: %s", err)
-		}
-		script, err := parseScripts(res)
-		if err != nil {
-			return jsScripts, fmt.Errorf("no script available: %s", err)
-		}
-		jsScripts = append(jsScripts, script)
+
+func getJS(client *http.Client, url string) error {
+	log.Println("getting script at:", url)
+	res, err := makeRequest(url, client)
+	if err != nil {
+		return fmt.Errorf("could not make script request: %s", err)
 	}
-	return jsScripts, nil
+	err = parseScripts(res)
+	if err != nil {
+		return fmt.Errorf("no script available: %s", err)
+	}
+	
+	return nil
 }
 
-func parseScripts(res *http.Response) (string, error) {
+func parseScripts(res *http.Response) error {
 	defer res.Body.Close()
 	doc, err := goquery.NewDocumentFromReader(res.Body)
 	if err != nil {
-		return "", fmt.Errorf("unable to parse script page: %s", err)
+		return fmt.Errorf("unable to parse script page: %s", err)
 	}
 	script := doc.Find("body").Text()
 	currentURL := *res.Request.URL
@@ -129,12 +124,12 @@ func parseScripts(res *http.Response) (string, error) {
 	if script != "" {
 		err := writeScripts(script, url)
 		if err != nil {
-			return script, fmt.Errorf("unable to write script file: %s", err)
+			return fmt.Errorf("unable to write script file: %s", err)
 		}
-		return script, nil
+		return nil
 	}
 	
-	return "", fmt.Errorf("no scripts at %s", url)
+	return fmt.Errorf("no scripts at %s", url)
 }
 
 func writeScripts(script, url string) error {
@@ -192,21 +187,24 @@ func main() {
 	assertErrorToNilf("could not make request: %s", err)
 	
 	// parse site
-	scriptSRC, scriptsNoSRC, err := parseDoc(res)
+	scriptSRC, err := parseDoc(res)
 	assertErrorToNilf("could not parse HTML: %s", err)
 
-	site := Site{}
-	site.ScriptSRC = scriptSRC
-	site.Scripts = scriptsNoSRC
-
+	
 	// write to file
 	err = writeFile(scriptSRC, "scriptSRC.txt")
 	assertErrorToNilf("could not write src list to file: %s", err)
 	
 	// get JS // goroutines
-	jsScripts, err := getJS(client, scriptSRC)
-	assertErrorToNilf("could not make script request: %s", err)
-	site.Scripts = append(site.Scripts, jsScripts...)
+	var wg sync.WaitGroup
+	wg.Add(len(scriptSRC))
+	for _, url := range scriptSRC {
+		go func (u string) {
+			defer wg.Done()
+			getJS(client, u) // not handling error yet
+		}(url)
+	}
+	wg.Wait()
 
 	fmt.Printf("\ntook: %f seconds\n", time.Since(start).Seconds())
 }
