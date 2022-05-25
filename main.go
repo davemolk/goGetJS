@@ -66,10 +66,10 @@ func parseDoc(res *http.Response) ([]string, error) {
 	doc.Find("script").Each(func(i int, s *goquery.Selection) {
 		// scripts with src
 		if value, ok := s.Attr("src"); ok {
-			if !strings.HasPrefix(value, "/") {
-				value = "/" + value
-			}
 			if !strings.HasPrefix(value, "http") {
+				if !strings.HasPrefix(value, "/") {
+					value = "/" + value
+				}
 				scriptsSRC = append(scriptsSRC, baseURL + value)
 			} else {
 				scriptsSRC = append(scriptsSRC, value)
