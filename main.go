@@ -52,9 +52,7 @@ func getUA() []string {
 }
 
 func parseDoc(res *http.Response) ([]string, error) {
-	scriptsSRC := []string{}
-	// scriptsNoSRC := []string{}
-	
+	scriptsSRC := []string{}	
 	defer res.Body.Close()
 	doc, err := goquery.NewDocumentFromReader(res.Body)
 	if err != nil {
@@ -77,7 +75,6 @@ func parseDoc(res *http.Response) ([]string, error) {
 		} else {
 			// scripts without src
 			script := strings.TrimSpace(s.Text())
-			// scriptsNoSRC = append(scriptsNoSRC, script)
 
 			// write to file			
 			scriptByte := []byte(script)
@@ -97,27 +94,25 @@ func parseDoc(res *http.Response) ([]string, error) {
 }
 
 
-func getJS(client *http.Client, scriptSRC []string) ([]string, error) {
-	jsScripts := []string{}
-	for _, s := range scriptSRC {
-		res, err := makeRequest(s, client)
-		if err != nil {
-			return jsScripts, fmt.Errorf("could not make script request: %s", err)
-		}
-		script, err := parseScripts(res)
-		if err != nil {
-			return jsScripts, fmt.Errorf("no script available: %s", err)
-		}
-		jsScripts = append(jsScripts, script)
+func getJS(client *http.Client, url string) error {
+	log.Println("getting script at:", url)
+	res, err := makeRequest(url, client)
+	if err != nil {
+		return fmt.Errorf("could not make script request: %s", err)
 	}
-	return jsScripts, nil
+	err = parseScripts(res)
+	if err != nil {
+		return fmt.Errorf("no script available: %s", err)
+	}
+	
+	return nil
 }
 
-func parseScripts(res *http.Response) (string, error) {
+func parseScripts(res *http.Response) error {
 	defer res.Body.Close()
 	doc, err := goquery.NewDocumentFromReader(res.Body)
 	if err != nil {
-		return "", fmt.Errorf("unable to parse script page: %s", err)
+		return fmt.Errorf("unable to parse script page: %s", err)
 	}
 	script := doc.Find("body").Text()
 	currentURL := *res.Request.URL
@@ -126,12 +121,12 @@ func parseScripts(res *http.Response) (string, error) {
 	if script != "" {
 		err := writeScripts(script, url)
 		if err != nil {
-			return script, fmt.Errorf("unable to write script file: %s", err)
+			return fmt.Errorf("unable to write script file: %s", err)
 		}
-		return script, nil
+		return nil
 	}
 	
-	return "", fmt.Errorf("no scripts at %s", url)
+	return fmt.Errorf("no scripts at %s", url)
 }
 
 func writeScripts(script, url string) error {
@@ -199,18 +194,14 @@ func main() {
 	
 	// get JS // goroutines
 	var wg sync.WaitGroup
-	for i := 1; i <= len(scriptSRC); i++ {
-		wg.Add(1)
-		go func() {
+	wg.Add(len(scriptSRC))
+	for _, url := range scriptSRC {
+		go func (u string) {
 			defer wg.Done()
-			getJS(client, scriptSRC)
-		}()
+			getJS(client, u) // not handling error yet
+		}(url)
 	}
 	wg.Wait()
-	// jsScripts, err := getJS(client, scriptSRC)
-	// assertErrorToNilf("could not make script request: %s", err)
-	// _ = jsScripts
-	// site.Scripts = append(site.Scripts, jsScripts...)
 
 	fmt.Printf("\ntook: %f seconds\n", time.Since(start).Seconds())
 }
