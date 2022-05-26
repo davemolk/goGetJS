@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/playwright-community/playwright-go"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -200,20 +201,52 @@ func noBrowser(url string, timeout int) {
 	}
 }
 
+func parseBrowserHTML(htmlDoc string) ([]string, error) {
+	browserSRC := []string{}
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(htmlDoc))
+	if err != nil {
+		return browserSRC, fmt.Errorf("could not read browser HTML with goquery: %w", err)
+	}
+	_ = doc
+	return browserSRC, nil
+}
+
 func main() {
 	url := flag.String("url", "https://go.dev/", "url to get JavaScript from")
 	timeout := flag.Int("timeout", 5, "timeout for request")
-	pw := flag.Bool("pw", false, "run playwright for JS-intensive sites (default is false")
+	useBrowswer := flag.Bool("useBrowswer", false, "run playwright for JS-intensive sites (default is false")
 	flag.Parse()
 
 	start := time.Now()
 
-	if !*pw {
+	if !*useBrowswer {
 		noBrowser(*url, *timeout)
-	}
-
-	// else Browser
+	} 
 	
+	// else Browser
+	pw, err := playwright.Run()
+	assertErrorToNilf("could not start playwright: %s", err)
+	browser, err := pw.Chromium.Launch()
+	assertErrorToNilf("could not launch useBrowswer: %s", err)
+	ua := randomUA()
+	context, err := browser.NewContext(playwright.BrowserNewContextOptions{
+		UserAgent: playwright.String(ua),
+	})
+	assertErrorToNilf("could not create context: %s", err)
+	page, err := context.NewPage()
+	assertErrorToNilf("could not create page: %s", err)
+	_, err = page.Goto(*url)
+	assertErrorToNilf("could not go to %s:", err)
+
+	// need to parse the string
+	
+	htmlDoc, err := page.Content()
+	assertErrorToNilf("could not get html from playwright: %s", err)
+
+	browserSRC, err := parseBrowserHTML(htmlDoc)
+	assertErrorToNilf("could not parse browser HTML: %s", err)
+	_ = browserSRC
+
 
 	fmt.Printf("\ntook: %f seconds\n", time.Since(start).Seconds())
 }
