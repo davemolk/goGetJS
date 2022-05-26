@@ -166,24 +166,15 @@ func writeFile(scripts []string, fileName string) error {
 	return nil
 }
 
-func main() {
-	url := flag.String("url", "https://go.dev/", "url to get JavaScript from")
-	timeout := flag.Int("timeout", 5, "timeout for request")
-	pw := flag.Bool("pw", false, "run playwright for JS-intensive sites (default is false")
-	flag.Parse()
-
-	start := time.Now()
-
-	_ = pw 
-
+func noBrowser(url string, timeout int) {
 	client := &http.Client{
-		Timeout: time.Duration(*timeout) * time.Second,
+		Timeout: time.Duration(timeout) * time.Second,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
 	}
 
-	res, err := makeRequest(*url, client)
+	res, err := makeRequest(url, client)
 	assertErrorToNilf("could not make request: %s", err)
 	
 	// parse site
@@ -207,6 +198,22 @@ func main() {
 	if err := g.Wait(); err != nil {
 		log.Println("error fetching script: ", err)
 	}
+}
+
+func main() {
+	url := flag.String("url", "https://go.dev/", "url to get JavaScript from")
+	timeout := flag.Int("timeout", 5, "timeout for request")
+	pw := flag.Bool("pw", false, "run playwright for JS-intensive sites (default is false")
+	flag.Parse()
+
+	start := time.Now()
+
+	if !*pw {
+		noBrowser(*url, *timeout)
+	}
+
+	// else Browser
+	
 
 	fmt.Printf("\ntook: %f seconds\n", time.Since(start).Seconds())
 }
