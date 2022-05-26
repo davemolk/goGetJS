@@ -22,7 +22,7 @@ import (
 func makeRequest(url string, client *http.Client) (*http.Response, error) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return nil, fmt.Errorf("unable to create request: %w", err)
+		return nil, fmt.Errorf("unable to create request: %v", err)
 	}
 	
 	ua := randomUA()
@@ -58,10 +58,10 @@ func parseDoc(r io.Reader, baseURL string) ([]string, error) {
 	scriptsSRC := []string{}	
 	doc, err := goquery.NewDocumentFromReader(r)
 	if err != nil {
-		return scriptsSRC, fmt.Errorf("could not read HTML with goquery: %w", err)
+		return scriptsSRC, fmt.Errorf("could not read HTML with goquery: %v", err)
 	}
 
-	j := 0
+	j := 1
 
 	doc.Find("script").Each(func(i int, s *goquery.Selection) {	
 		// scripts with src
@@ -100,11 +100,11 @@ func getJS(client *http.Client, url string) error {
 	log.Println("getting script at:", url)
 	res, err := makeRequest(url, client)
 	if err != nil {
-		return fmt.Errorf("could not make script request: %s", err)
+		return fmt.Errorf("could not make script request: %v", err)
 	}
 	err = parseScripts(res)
 	if err != nil {
-		return fmt.Errorf("no script available: %s", err)
+		return fmt.Errorf("no script available: %v", err)
 	}
 	
 	return nil
@@ -114,7 +114,7 @@ func parseScripts(res *http.Response) error {
 	defer res.Body.Close()
 	doc, err := goquery.NewDocumentFromReader(res.Body)
 	if err != nil {
-		return fmt.Errorf("unable to parse script page: %s", err)
+		return fmt.Errorf("unable to parse script page: %q", err)
 	}
 	script := doc.Find("body").Text()
 	currentURL := *res.Request.URL
@@ -123,12 +123,12 @@ func parseScripts(res *http.Response) error {
 	if script != "" {
 		err := writeScripts(script, url)
 		if err != nil {
-			return fmt.Errorf("unable to write script file: %s", err)
+			return fmt.Errorf("unable to write script file: %q", err)
 		}
 		return nil
 	}
 	
-	return fmt.Errorf("no scripts at %s", url)
+	return fmt.Errorf("no scripts at %v", url)
 }
 
 func writeScripts(script, url string) error {
@@ -174,28 +174,79 @@ func noBrowser(url string, timeout int) {
 	}
 
 	res, err := makeRequest(url, client)
-	assertErrorToNilf("could not make request: %s", err)
+	assertErrorToNilf("could not make request: %v", err)
 	defer res.Body.Close()
 
 	baseURL := getAbsURL(res)
 
 	// parse site
-	scriptSRC, err := parseDoc(res.Body, baseURL)
-	assertErrorToNilf("could not parse HTML: %s", err)
+	scriptsSRC, err := parseDoc(res.Body, baseURL)
+	assertErrorToNilf("could not parse HTML: %v", err)
 
 	// write to file
-	err = writeFile(scriptSRC, "scriptSRC.txt")
-	assertErrorToNilf("could not write src list to file: %s", err)
+	err = writeFile(scriptsSRC, "scriptsSRC.txt")
+	assertErrorToNilf("could not write src list to file: %v", err)
 	
 	// get JS
 	g := new(errgroup.Group)
-	for _, url := range scriptSRC {
+	for _, url := range scriptsSRC {
 		url := url
 		g.Go(func() error {
 			err := getJS(client, url)
 			return err
 		})
 	}
+	if err := g.Wait(); err != nil {
+		log.Println("error fetching script: ", err)
+	}
+}
+
+func browser(url string, timeout int) {
+	pw, err := playwright.Run()
+	assertErrorToNilf("could not start playwright: %v", err)
+	
+	browser, err := pw.Chromium.Launch()
+	assertErrorToNilf("could not launch useBrowswer: %v", err)
+
+	ua := randomUA()
+	context, err := browser.NewContext(playwright.BrowserNewContextOptions{
+		UserAgent: playwright.String(ua),
+	})
+	assertErrorToNilf("could not create context: %v", err)
+	
+	page, err := context.NewPage()
+	assertErrorToNilf("could not create page: %v", err)
+	
+	_, err = page.Goto(url, playwright.PageGotoOptions{
+		WaitUntil: playwright.WaitUntilStateNetworkidle,
+	})
+	assertErrorToNilf("could not go to %v:", err)
+	
+	htmlDoc, err := page.Content()
+	assertErrorToNilf("could not get html from playwright: %v", err)
+
+	scriptsSRC, err := parseDoc(strings.NewReader(htmlDoc), url)
+	assertErrorToNilf("could not parse browser HTML: %v", err)
+	
+	err = writeFile(scriptsSRC, "scriptSRC.txt")
+	assertErrorToNilf("could not write src list to file: %v", err)
+	
+	client := &http.Client{
+		Timeout: time.Duration(timeout) * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+
+	g := new(errgroup.Group)
+	for _, url := range scriptsSRC {
+		url := url
+		g.Go(func() error {
+			err := getJS(client, url)
+			return err
+		})
+	}
+
 	if err := g.Wait(); err != nil {
 		log.Println("error fetching script: ", err)
 	}
@@ -212,32 +263,11 @@ func main() {
 
 	if !*useBrowswer {
 		noBrowser(*url, *timeout)
-	} 
+	} else {
+		browser(*url, *timeout)
+	}
 	
-	// else Browser
-	pw, err := playwright.Run()
-	assertErrorToNilf("could not start playwright: %s", err)
-	browser, err := pw.Chromium.Launch()
-	assertErrorToNilf("could not launch useBrowswer: %s", err)
-	ua := randomUA()
-	context, err := browser.NewContext(playwright.BrowserNewContextOptions{
-		UserAgent: playwright.String(ua),
-	})
-	assertErrorToNilf("could not create context: %s", err)
-	page, err := context.NewPage()
-	assertErrorToNilf("could not create page: %s", err)
-	_, err = page.Goto(*url)
-	assertErrorToNilf("could not go to %s:", err)
-
-	// need to parse the string
 	
-	htmlDoc, err := page.Content()
-	assertErrorToNilf("could not get html from playwright: %s", err)
-
-	scriptsSRC, err := parseDoc(strings.NewReader(htmlDoc), *url)
-	assertErrorToNilf("could not parse browser HTML: %s", err)
-	_ = scriptsSRC
-
 
 	fmt.Printf("\ntook: %f seconds\n", time.Since(start).Seconds())
 }
