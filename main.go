@@ -195,17 +195,7 @@ func main() {
 	err = writeFile(scriptSRC, "scriptSRC.txt")
 	assertErrorToNilf("could not write src list to file: %s", err)
 	
-	// get JS // goroutines
-	// var wg sync.WaitGroup
-	// wg.Add(len(scriptSRC))
-	// for _, url := range scriptSRC {
-	// 	go func (u string) {
-	// 		defer wg.Done()
-	// 		getJS(client, u) // not handling error yet
-	// 	}(url)
-	// }
-	// wg.Wait()
-
+	// get JS
 	g := new(errgroup.Group)
 	for _, url := range scriptSRC {
 		url := url
