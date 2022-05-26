@@ -54,14 +54,14 @@ func getUA() []string {
 	}
 }
 
-func parseDoc(r io.Reader, baseURL string) ([]string, error) {
+func parseDoc(r io.Reader, baseURL string) ([]string, int, error) {
 	scriptsSRC := []string{}	
 	doc, err := goquery.NewDocumentFromReader(r)
 	if err != nil {
-		return scriptsSRC, fmt.Errorf("could not read HTML with goquery: %v", err)
+		return scriptsSRC, 0, fmt.Errorf("could not read HTML with goquery: %v", err)
 	}
 
-	j := 1
+	j := 0
 
 	doc.Find("script").Each(func(i int, s *goquery.Selection) {	
 		// scripts with src
@@ -80,19 +80,20 @@ func parseDoc(r io.Reader, baseURL string) ([]string, error) {
 
 			// write to file			
 			scriptByte := []byte(script)
-			scriptName := fmt.Sprintf("anon%s.js", strconv.Itoa(j))
 			j++
+			scriptName := fmt.Sprintf("anon%s.js", strconv.Itoa(j))
 			if err := os.WriteFile(scriptName, scriptByte, 0644); err != nil {
 				log.Println("could not write anon script", err)
+				j--
 			}
 		}
 	})
 
 	if len(scriptsSRC) != 0 {
-		return scriptsSRC, nil
+		return scriptsSRC, j, nil
 	}
 
-	return scriptsSRC, fmt.Errorf("no src found on page")
+	return scriptsSRC, j, fmt.Errorf("no src found on page")
 }
 
 
@@ -180,7 +181,7 @@ func noBrowser(url string, timeout int) {
 	baseURL := getAbsURL(res)
 
 	// parse site
-	scriptsSRC, err := parseDoc(res.Body, baseURL)
+	scriptsSRC, counter, err := parseDoc(res.Body, baseURL)
 	assertErrorToNilf("could not parse HTML: %v", err)
 
 	// write to file
@@ -196,9 +197,15 @@ func noBrowser(url string, timeout int) {
 			return err
 		})
 	}
+
+	counter = counter + len(scriptsSRC)
+
 	if err := g.Wait(); err != nil {
 		log.Println("error fetching script: ", err)
+		counter--
 	}
+
+	fmt.Printf("\nsuccessfully wrote %d scripts\n", counter)
 }
 
 func browser(url string, timeout int) {
@@ -225,7 +232,7 @@ func browser(url string, timeout int) {
 	htmlDoc, err := page.Content()
 	assertErrorToNilf("could not get html from playwright: %v", err)
 
-	scriptsSRC, err := parseDoc(strings.NewReader(htmlDoc), url)
+	scriptsSRC, counter, err := parseDoc(strings.NewReader(htmlDoc), url)
 	assertErrorToNilf("could not parse browser HTML: %v", err)
 	
 	err = writeFile(scriptsSRC, "scriptSRC.txt")
@@ -247,9 +254,14 @@ func browser(url string, timeout int) {
 		})
 	}
 
+	counter = counter + len(scriptsSRC)
+
 	if err := g.Wait(); err != nil {
 		log.Println("error fetching script: ", err)
+		counter --
 	}
+
+	fmt.Printf("\nsuccessfully wrote %d scripts\n", counter)
 }
 
 func main() {
@@ -260,14 +272,11 @@ func main() {
 
 	start := time.Now()
 
-
 	if !*useBrowswer {
 		noBrowser(*url, *timeout)
 	} else {
 		browser(*url, *timeout)
 	}
 	
-	
-
 	fmt.Printf("\ntook: %f seconds\n", time.Since(start).Seconds())
 }
