@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"math/rand"
 	"net/http"
@@ -53,15 +54,12 @@ func getUA() []string {
 	}
 }
 
-func parseDoc(res *http.Response) ([]string, error) {
+func parseDoc(r io.Reader, baseURL string) ([]string, error) {
 	scriptsSRC := []string{}	
-	defer res.Body.Close()
-	doc, err := goquery.NewDocumentFromReader(res.Body)
+	doc, err := goquery.NewDocumentFromReader(r)
 	if err != nil {
 		return scriptsSRC, fmt.Errorf("could not read HTML with goquery: %w", err)
 	}
-
-	baseURL := getAbsURL(res)
 
 	j := 0
 
@@ -85,7 +83,7 @@ func parseDoc(res *http.Response) ([]string, error) {
 			scriptName := fmt.Sprintf("anon%s.js", strconv.Itoa(j))
 			j++
 			if err := os.WriteFile(scriptName, scriptByte, 0644); err != nil {
-				log.Println("within write anon script", err)
+				log.Println("could not write anon script", err)
 			}
 		}
 	})
@@ -177,12 +175,14 @@ func noBrowser(url string, timeout int) {
 
 	res, err := makeRequest(url, client)
 	assertErrorToNilf("could not make request: %s", err)
-	
+	defer res.Body.Close()
+
+	baseURL := getAbsURL(res)
+
 	// parse site
-	scriptSRC, err := parseDoc(res)
+	scriptSRC, err := parseDoc(res.Body, baseURL)
 	assertErrorToNilf("could not parse HTML: %s", err)
 
-	
 	// write to file
 	err = writeFile(scriptSRC, "scriptSRC.txt")
 	assertErrorToNilf("could not write src list to file: %s", err)
@@ -201,23 +201,14 @@ func noBrowser(url string, timeout int) {
 	}
 }
 
-func parseBrowserHTML(htmlDoc string) ([]string, error) {
-	browserSRC := []string{}
-	doc, err := goquery.NewDocumentFromReader(strings.NewReader(htmlDoc))
-	if err != nil {
-		return browserSRC, fmt.Errorf("could not read browser HTML with goquery: %w", err)
-	}
-	_ = doc
-	return browserSRC, nil
-}
-
 func main() {
 	url := flag.String("url", "https://go.dev/", "url to get JavaScript from")
 	timeout := flag.Int("timeout", 5, "timeout for request")
-	useBrowswer := flag.Bool("useBrowswer", false, "run playwright for JS-intensive sites (default is false")
+	useBrowswer := flag.Bool("useBrowser", false, "run playwright for JS-intensive sites (default is false")
 	flag.Parse()
 
 	start := time.Now()
+
 
 	if !*useBrowswer {
 		noBrowser(*url, *timeout)
@@ -243,9 +234,9 @@ func main() {
 	htmlDoc, err := page.Content()
 	assertErrorToNilf("could not get html from playwright: %s", err)
 
-	browserSRC, err := parseBrowserHTML(htmlDoc)
+	scriptsSRC, err := parseDoc(strings.NewReader(htmlDoc), *url)
 	assertErrorToNilf("could not parse browser HTML: %s", err)
-	_ = browserSRC
+	_ = scriptsSRC
 
 
 	fmt.Printf("\ntook: %f seconds\n", time.Since(start).Seconds())
