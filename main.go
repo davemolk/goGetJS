@@ -82,7 +82,7 @@ func parseDoc(r io.Reader, baseURL string) ([]string, int, error) {
 			scriptByte := []byte(script)
 			j++
 			scriptName := fmt.Sprintf("anon%s.js", strconv.Itoa(j))
-			if err := os.WriteFile(scriptName, scriptByte, 0644); err != nil {
+			if err := os.WriteFile("data/"+scriptName, scriptByte, 0644); err != nil {
 				log.Println("could not write anon script", err)
 				j--
 			}
@@ -136,7 +136,7 @@ func writeScripts(script, url string) error {
 	r := regexp.MustCompile(`[\w-]+(\.js)?$`) // need to expand? 
 	fileName := r.FindString(url)
 	scriptByte := []byte(script)
-	if err := os.WriteFile(fileName, scriptByte, 0644); err != nil {
+	if err := os.WriteFile("data/"+fileName, scriptByte, 0644); err != nil {
 		return err
 	}
 	return nil
@@ -267,8 +267,11 @@ func browser(url string, timeout int) {
 func main() {
 	url := flag.String("url", "https://go.dev/", "url to get JavaScript from")
 	timeout := flag.Int("timeout", 5, "timeout for request")
-	useBrowswer := flag.Bool("useBrowser", false, "run playwright for JS-intensive sites (default is false")
+	useBrowswer := flag.Bool("browser", false, "run playwright for JS-intensive sites (default is false")
 	flag.Parse()
+
+	err := os.Mkdir("data", 0755)
+	assertErrorToNilf("could not create folder to store scripts: %v", err)
 
 	start := time.Now()
 
