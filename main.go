@@ -225,13 +225,11 @@ func browser(url string, timeout int, extraWait int) {
 	assertErrorToNilf("could not create page: %v", err)
 
 	_, err = page.Goto(url, playwright.PageGotoOptions{
-		// WaitUntil: playwright.WaitUntilStateDomcontentloaded, // not as reliable
 		WaitUntil: playwright.WaitUntilStateNetworkidle,
 	})
 	assertErrorToNilf("could not go to %v:", err)
 
 	time.Sleep(time.Duration(extraWait) * time.Second)
-	log.Println("waiting for:", extraWait)
 
 	htmlDoc, err := page.Content()
 	assertErrorToNilf("could not get html from playwright: %v", err)
@@ -249,10 +247,10 @@ func browser(url string, timeout int, extraWait int) {
 		},
 	}
 
-	g := new(errgroup.Group)
+	group := new(errgroup.Group)
 	for _, url := range scriptsSRC {
 		url := url
-		g.Go(func() error {
+		group.Go(func() error {
 			err := getJS(client, url)
 			return err
 		})
@@ -260,7 +258,7 @@ func browser(url string, timeout int, extraWait int) {
 
 	counter = counter + len(scriptsSRC)
 
-	if err := g.Wait(); err != nil {
+	if err := group.Wait(); err != nil {
 		log.Println("error fetching script: ", err)
 		counter--
 	}
@@ -287,4 +285,4 @@ func main() {
 	}
 
 	fmt.Printf("\ntook: %f seconds\n", time.Since(start).Seconds())
-}
+} 
