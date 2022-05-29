@@ -26,4 +26,4 @@ func main() {
 	}
 
 	fmt.Printf("\ntook: %f seconds\n", time.Since(start).Seconds())
-} 
+}

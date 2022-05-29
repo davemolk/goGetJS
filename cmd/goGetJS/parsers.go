@@ -12,9 +12,6 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
-
-
-
 func parseDoc(r io.Reader, baseURL string) ([]string, int, error) {
 	scriptsSRC := []string{}
 	doc, err := goquery.NewDocumentFromReader(r)

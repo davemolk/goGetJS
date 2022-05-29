@@ -16,8 +16,6 @@ func writeScripts(script, url string) error {
 	return nil
 }
 
-
-
 func writeFile(scripts []string, fileName string) error {
 	f, err := os.Create(fileName)
 	if err != nil {
