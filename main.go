@@ -18,15 +18,14 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-
 func makeRequest(url string, client *http.Client) (*http.Response, error) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create request: %v", err)
 	}
-	
-	ua := randomUA()
-	req.Header.Set("User-Agent", ua)
+
+	uAgent := randomUA()
+	req.Header.Set("User-Agent", uAgent)
 
 	res, err := client.Do(req)
 	if err != nil {
@@ -55,7 +54,7 @@ func getUA() []string {
 }
 
 func parseDoc(r io.Reader, baseURL string) ([]string, int, error) {
-	scriptsSRC := []string{}	
+	scriptsSRC := []string{}
 	doc, err := goquery.NewDocumentFromReader(r)
 	if err != nil {
 		return scriptsSRC, 0, fmt.Errorf("could not read HTML with goquery: %v", err)
@@ -63,14 +62,14 @@ func parseDoc(r io.Reader, baseURL string) ([]string, int, error) {
 
 	j := 0
 
-	doc.Find("script").Each(func(i int, s *goquery.Selection) {	
+	doc.Find("script").Each(func(i int, s *goquery.Selection) {
 		// scripts with src
 		if value, ok := s.Attr("src"); ok {
 			if !strings.HasPrefix(value, "http") {
 				if !strings.HasPrefix(value, "/") {
 					value = fmt.Sprintf("/%s", value)
 				}
-				scriptsSRC = append(scriptsSRC, baseURL + value)
+				scriptsSRC = append(scriptsSRC, baseURL+value)
 			} else {
 				scriptsSRC = append(scriptsSRC, value)
 			}
@@ -78,7 +77,7 @@ func parseDoc(r io.Reader, baseURL string) ([]string, int, error) {
 			// scripts without src
 			script := strings.TrimSpace(s.Text())
 
-			// write to file			
+			// write to file
 			scriptByte := []byte(script)
 			j++
 			scriptName := fmt.Sprintf("anon%s.js", strconv.Itoa(j))
@@ -96,7 +95,6 @@ func parseDoc(r io.Reader, baseURL string) ([]string, int, error) {
 	return scriptsSRC, j, fmt.Errorf("no src found on page")
 }
 
-
 func getJS(client *http.Client, url string) error {
 	log.Println("getting script at:", url)
 	res, err := makeRequest(url, client)
@@ -107,7 +105,7 @@ func getJS(client *http.Client, url string) error {
 	if err != nil {
 		return fmt.Errorf("no script available: %v", err)
 	}
-	
+
 	return nil
 }
 
@@ -128,12 +126,12 @@ func parseScripts(res *http.Response) error {
 		}
 		return nil
 	}
-	
+
 	return fmt.Errorf("no scripts at %v", url)
 }
 
 func writeScripts(script, url string) error {
-	r := regexp.MustCompile(`[\w-]+(\.js)?$`) // need to expand? 
+	r := regexp.MustCompile(`[\w-]+(\.js)?$`)
 	fileName := r.FindString(url)
 	scriptByte := []byte(script)
 	if err := os.WriteFile("data/"+fileName, scriptByte, 0644); err != nil {
@@ -187,7 +185,7 @@ func noBrowser(url string, timeout int) {
 	// write to file
 	err = writeFile(scriptsSRC, "scriptsSRC.txt")
 	assertErrorToNilf("could not write src list to file: %v", err)
-	
+
 	// get JS
 	g := new(errgroup.Group)
 	for _, url := range scriptsSRC {
@@ -208,36 +206,42 @@ func noBrowser(url string, timeout int) {
 	fmt.Printf("\nsuccessfully wrote %d scripts\n", counter)
 }
 
-func browser(url string, timeout int) {
+func browser(url string, timeout int, extraWait int) {
+	url = strings.TrimSuffix(url, "/")
+
 	pw, err := playwright.Run()
 	assertErrorToNilf("could not start playwright: %v", err)
-	
+
 	browser, err := pw.Chromium.Launch()
 	assertErrorToNilf("could not launch useBrowswer: %v", err)
 
-	ua := randomUA()
+	uAgent := randomUA()
 	context, err := browser.NewContext(playwright.BrowserNewContextOptions{
-		UserAgent: playwright.String(ua),
+		UserAgent: playwright.String(uAgent),
 	})
 	assertErrorToNilf("could not create context: %v", err)
-	
+
 	page, err := context.NewPage()
 	assertErrorToNilf("could not create page: %v", err)
-	
+
 	_, err = page.Goto(url, playwright.PageGotoOptions{
+		// WaitUntil: playwright.WaitUntilStateDomcontentloaded, // not as reliable
 		WaitUntil: playwright.WaitUntilStateNetworkidle,
 	})
 	assertErrorToNilf("could not go to %v:", err)
-	
+
+	time.Sleep(time.Duration(extraWait) * time.Second)
+	log.Println("waiting for:", extraWait)
+
 	htmlDoc, err := page.Content()
 	assertErrorToNilf("could not get html from playwright: %v", err)
 
 	scriptsSRC, counter, err := parseDoc(strings.NewReader(htmlDoc), url)
 	assertErrorToNilf("could not parse browser HTML: %v", err)
-	
+
 	err = writeFile(scriptsSRC, "scriptSRC.txt")
 	assertErrorToNilf("could not write src list to file: %v", err)
-	
+
 	client := &http.Client{
 		Timeout: time.Duration(timeout) * time.Second,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
@@ -258,7 +262,7 @@ func browser(url string, timeout int) {
 
 	if err := g.Wait(); err != nil {
 		log.Println("error fetching script: ", err)
-		counter --
+		counter--
 	}
 
 	fmt.Printf("\nsuccessfully wrote %d scripts\n", counter)
@@ -268,6 +272,7 @@ func main() {
 	url := flag.String("url", "https://go.dev/", "url to get JavaScript from")
 	timeout := flag.Int("timeout", 5, "timeout for request")
 	useBrowswer := flag.Bool("browser", false, "run playwright for JS-intensive sites (default is false")
+	extraWait := flag.Int("extraWait", 0, "wait (in seconds) for longer network events, only applies when browser=true. default is 0 seconds")
 	flag.Parse()
 
 	err := os.Mkdir("data", 0755)
@@ -278,8 +283,8 @@ func main() {
 	if !*useBrowswer {
 		noBrowser(*url, *timeout)
 	} else {
-		browser(*url, *timeout)
+		browser(*url, *timeout, *extraWait)
 	}
-	
+
 	fmt.Printf("\ntook: %f seconds\n", time.Since(start).Seconds())
 }
