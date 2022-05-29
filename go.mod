@@ -14,4 +14,5 @@ require (
 	github.com/go-stack/stack v1.8.1 // indirect
 	golang.org/x/net v0.0.0-20210916014120-12bc252f5db8 // indirect
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
+	gopkg.in/yaml.v3 v3.0.0
 )
