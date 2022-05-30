@@ -11,7 +11,7 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-func noBrowser(url string, timeout int) {
+func noBrowser(url, term string, timeout int) {
 	client := &http.Client{
 		Timeout: time.Duration(timeout) * time.Second,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
@@ -38,7 +38,7 @@ func noBrowser(url string, timeout int) {
 	for _, url := range scriptsSRC {
 		url := url
 		g.Go(func() error {
-			err := getJS(client, url)
+			err := getJS(client, url, term)
 			return err
 		})
 	}
@@ -53,7 +53,7 @@ func noBrowser(url string, timeout int) {
 	fmt.Printf("\nsuccessfully wrote %d scripts\n", counter)
 }
 
-func browser(url string, timeout int, extraWait int) {
+func browser(url, term string, timeout, extraWait int) {
 	url = strings.TrimSuffix(url, "/")
 
 	pw, err := playwright.Run()
@@ -98,7 +98,7 @@ func browser(url string, timeout int, extraWait int) {
 	for _, url := range scriptsSRC {
 		url := url
 		group.Go(func() error {
-			err := getJS(client, url)
+			err := getJS(client, url, term)
 			return err
 		})
 	}

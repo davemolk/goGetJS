@@ -12,6 +12,8 @@ func main() {
 	timeout := flag.Int("timeout", 5, "timeout for request")
 	useBrowswer := flag.Bool("browser", false, "run playwright for JS-intensive sites (default is false")
 	extraWait := flag.Int("extraWait", 0, "wait (in seconds) for longer network events, only applies when browser=true. default is 0 seconds")
+	term := flag.String("term", "", "search term")
+
 	flag.Parse()
 
 	err := os.Mkdir("data", 0755)
@@ -20,9 +22,9 @@ func main() {
 	start := time.Now()
 
 	if !*useBrowswer {
-		noBrowser(*url, *timeout)
+		noBrowser(*url, *term, *timeout)
 	} else {
-		browser(*url, *timeout, *extraWait)
+		browser(*url, *term, *timeout, *extraWait)
 	}
 
 	fmt.Printf("\ntook: %f seconds\n", time.Since(start).Seconds())

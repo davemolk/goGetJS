@@ -54,13 +54,13 @@ func parseDoc(r io.Reader, baseURL string) ([]string, int, error) {
 	return scriptsSRC, j, fmt.Errorf("no src found on page")
 }
 
-func getJS(client *http.Client, url string) error {
+func getJS(client *http.Client, url, term string) error {
 	log.Println("getting script at:", url)
 	res, err := makeRequest(url, client)
 	if err != nil {
 		return fmt.Errorf("could not make script request: %v", err)
 	}
-	err = parseScripts(res)
+	err = parseScripts(res, term)
 	if err != nil {
 		return fmt.Errorf("no script available: %v", err)
 	}
@@ -68,7 +68,7 @@ func getJS(client *http.Client, url string) error {
 	return nil
 }
 
-func parseScripts(res *http.Response) error {
+func parseScripts(res *http.Response, term string) error {
 	defer res.Body.Close()
 	doc, err := goquery.NewDocumentFromReader(res.Body)
 	if err != nil {
@@ -77,6 +77,10 @@ func parseScripts(res *http.Response) error {
 	script := doc.Find("body").Text()
 	currentURL := *res.Request.URL
 	url := currentURL.String()
+
+	if strings.Contains(script, term) {
+		fmt.Printf("\nFound %q at %s", term, url)
+	}
 
 	if script != "" {
 		err := writeScripts(script, url)
