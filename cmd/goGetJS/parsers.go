@@ -54,16 +54,61 @@ func parseDoc(r io.Reader, baseURL string) ([]string, int, error) {
 	return scriptsSRC, j, fmt.Errorf("no src found on page")
 }
 
-func getJS(client *http.Client, url, term string) error {
+func getJS(client *http.Client, url string, query interface{}) error {
 	log.Println("getting script at:", url)
 	res, err := makeRequest(url, client)
 	if err != nil {
 		return fmt.Errorf("could not make script request: %v", err)
 	}
-	err = parseScripts(res, term)
+	// term := query
+	// err = parseScripts(res, term)
+	// if err != nil {
+	// 	return fmt.Errorf("no script available: %v", err)
+	// }
+
+
+	defer res.Body.Close()
+	doc, err := goquery.NewDocumentFromReader(res.Body)
 	if err != nil {
-		return fmt.Errorf("no script available: %v", err)
+		return fmt.Errorf("unable to parse script page: %q", err)
 	}
+	script := doc.Find("body").Text()
+	currentURL := *res.Request.URL
+	url = currentURL.String()
+
+	switch v := query.(type) {
+	case string:
+		log.Println("in the string case")
+		if strings.Contains(script, v) {
+			fmt.Printf("\nFound %q in %s", v, url)
+		}
+	
+		if script != "" {
+			err := writeScripts(script, url)
+			if err != nil {
+				return fmt.Errorf("unable to write script file: %q", err)
+			}
+			return nil
+		}
+	default:
+		fmt.Printf("in default, query is %T", query)
+
+	}
+
+	// if strings.Contains(script, term) {
+	// 	fmt.Printf("\nFound %q in %s", term, url)
+	// }
+
+	// if script != "" {
+	// 	err := writeScripts(script, url)
+	// 	if err != nil {
+	// 		return fmt.Errorf("unable to write script file: %q", err)
+	// 	}
+	// 	return nil
+	// }
+
+	return fmt.Errorf("no scripts at %v", url)
+
 
 	return nil
 }

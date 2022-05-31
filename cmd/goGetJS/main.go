@@ -6,17 +6,25 @@ import (
 	"io"
 	"log"
 	"os"
+	"regexp"
 	"time"
 
 	"golang.org/x/sync/errgroup"
 )
 
 func main() {
-	url := flag.String("url", "https://go.dev/", "url to get JavaScript from")
+	url := flag.String("url", "https://go.dev", "url to get JavaScript from")
 	timeout := flag.Int("timeout", 5, "timeout for request")
 	useBrowswer := flag.Bool("browser", false, "run playwright for JS-intensive sites (default is false")
 	extraWait := flag.Int("extraWait", 0, "wait (in seconds) for longer network events, only applies when browser=true. default is 0 seconds")
 	term := flag.String("term", "", "search term")
+	regex := flag.String("re", "", "regex expression")
+
+	// maybe wait on this, convert to string in the moment?
+	if len(*regex) > 0 {
+		re := regexp.MustCompile(*regex) 
+		_ = re
+	}
 
 	flag.Parse()
 
@@ -47,11 +55,15 @@ func main() {
 	err = writeFile(scriptsSRC, "scriptSRC.txt")
 	assertErrorToNilf("could not write src list to file: %v", err)
 	
+	var query interface{}
+	termValue := *term
+	query = termValue
+	
 	group := new(errgroup.Group)
 	for _, url := range scriptsSRC {
 		url := url
 		group.Go(func() error {
-			err := getJS(client, url, *term)
+			err := getJS(client, url, query)
 			return err
 		})
 	}
