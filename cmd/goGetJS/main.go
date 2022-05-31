@@ -3,8 +3,12 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
+	"log"
 	"os"
 	"time"
+
+	"golang.org/x/sync/errgroup"
 )
 
 func main() {
@@ -21,11 +25,45 @@ func main() {
 
 	start := time.Now()
 
-	if !*useBrowswer {
-		noBrowser(*url, *term, *timeout)
+	client := makeClient(*timeout)
+
+	var reader io.Reader
+
+	if *useBrowswer {
+		reader, err = browser(*url, *term, *extraWait, client)
+		if err != nil {
+			log.Println("error for use browser")
+		}		
 	} else {
-		browser(*url, *term, *timeout, *extraWait)
+		res, err := makeRequest(*url, client)
+		assertErrorToNilf("could not make request: %v", err)
+		reader = res.Body
+		defer res.Body.Close()
 	}
+
+	scriptsSRC, counter, err := parseDoc(reader, *url)
+	assertErrorToNilf("could not parse browser HTML: %v", err)
+
+	err = writeFile(scriptsSRC, "scriptSRC.txt")
+	assertErrorToNilf("could not write src list to file: %v", err)
+	
+	group := new(errgroup.Group)
+	for _, url := range scriptsSRC {
+		url := url
+		group.Go(func() error {
+			err := getJS(client, url, *term)
+			return err
+		})
+	}
+
+	counter = counter + len(scriptsSRC)
+
+	if err := group.Wait(); err != nil {
+		log.Println("error fetching script: ", err)
+		counter--
+	}
+
+	fmt.Printf("\nsuccessfully wrote %d scripts\n", counter)
 
 	fmt.Printf("\ntook: %f seconds\n", time.Since(start).Seconds())
 }

@@ -7,6 +7,15 @@ import (
 	"time"
 )
 
+func makeClient(timeout int) *http.Client {
+	return &http.Client{
+		Timeout: time.Duration(timeout) * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+}
+
 func makeRequest(url string, client *http.Client) (*http.Response, error) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {

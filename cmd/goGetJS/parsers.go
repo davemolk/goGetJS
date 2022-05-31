@@ -79,7 +79,7 @@ func parseScripts(res *http.Response, term string) error {
 	url := currentURL.String()
 
 	if strings.Contains(script, term) {
-		fmt.Printf("\nFound %q at %s", term, url)
+		fmt.Printf("\nFound %q in %s", term, url)
 	}
 
 	if script != "" {
