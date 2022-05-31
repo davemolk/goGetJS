@@ -20,7 +20,7 @@ func parseDoc(r io.Reader, baseURL string) ([]string, int, error) {
 		return scriptsSRC, 0, fmt.Errorf("could not read HTML with goquery: %v", err)
 	}
 
-	j := 0
+	anonCount := 0
 
 	doc.Find("script").Each(func(i int, s *goquery.Selection) {
 		// scripts with src
@@ -39,23 +39,23 @@ func parseDoc(r io.Reader, baseURL string) ([]string, int, error) {
 
 			// write to file
 			scriptByte := []byte(script)
-			j++
-			scriptName := fmt.Sprintf("anon%s.js", strconv.Itoa(j))
+			anonCount++
+			scriptName := fmt.Sprintf("anon%s.js", strconv.Itoa(anonCount))
 			if err := os.WriteFile("data/"+scriptName, scriptByte, 0644); err != nil {
 				log.Println("could not write anon script", err)
-				j--
+				anonCount--
 			}
 		}
 	})
 
 	if len(scriptsSRC) != 0 {
-		return scriptsSRC, j, nil
+		return scriptsSRC, anonCount, nil
 	}
 
-	return scriptsSRC, j, fmt.Errorf("no src found on page")
+	return scriptsSRC, anonCount, fmt.Errorf("no src found on page")
 }
 
-func getJS(client *http.Client, url string, query interface{}) error {
+func getJS(client *http.Client, url string, query interface{}, r *regexp.Regexp) error {
 	log.Println("getting script at:", url)
 	res, err := makeRequest(url, client)
 	if err != nil {
@@ -73,13 +73,12 @@ func getJS(client *http.Client, url string, query interface{}) error {
 
 	switch v := query.(type) {
 	case *regexp.Regexp:
-		log.Println("in regex branch")
 		if v.FindAllString(script, -1) != nil {
 			fmt.Printf("\nFound %q in %s\n", v.FindAllString(script, -1), url)
 		}
 
 		if script != "" {
-			err := writeScripts(script, url)
+			err := writeScripts(script, url, r)
 			if err != nil {
 				return fmt.Errorf("unable to write script file: %q", err)
 			}
@@ -87,13 +86,12 @@ func getJS(client *http.Client, url string, query interface{}) error {
 		}
 
 	case string:
-		log.Println("in the string case")
 		if strings.Contains(script, v) {
 			fmt.Printf("\nFound %q in %s\n", v, url)
 		}
 	
 		if script != "" {
-			err := writeScripts(script, url)
+			err := writeScripts(script, url, r)
 			if err != nil {
 				return fmt.Errorf("unable to write script file: %q", err)
 			}

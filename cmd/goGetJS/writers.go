@@ -6,9 +6,8 @@ import (
 	"regexp"
 )
 
-func writeScripts(script, url string) error {
-	r := regexp.MustCompile(`[\w-]+(\.js)?$`)
-	fileName := r.FindString(url)
+func writeScripts(script, url string, fileNamer *regexp.Regexp) error {
+	fileName := fileNamer.FindString(url)
 	scriptByte := []byte(script)
 	if err := os.WriteFile("data/"+fileName, scriptByte, 0644); err != nil {
 		return err

@@ -35,10 +35,8 @@ func main() {
 	var reader io.Reader
 
 	if *useBrowswer {
-		reader, err = browser(*url, term, *extraWait, client)
-		if err != nil {
-			log.Println("error for use browser")
-		}		
+		reader, err = browser(*url, *extraWait, client)
+		assertErrorToNilf("could not make request with browser: %v", err)	
 	} else {
 		res, err := makeRequest(*url, client)
 		assertErrorToNilf("could not make request: %v", err)
@@ -55,16 +53,17 @@ func main() {
 	var query interface{}
 	if len(reg) > 0 {
 		re := regexp.MustCompile(reg)
-		query = re // need to compile here...
+		query = re
 	} else {
 		query = term
 	}
 
+	fileNamer := regexp.MustCompile(`[\w-]+(\.js)?$`)
 	group := new(errgroup.Group)
 	for _, url := range scriptsSRC {
 		url := url
 		group.Go(func() error {
-			err := getJS(client, url, query)
+			err := getJS(client, url, query, fileNamer)
 			return err
 		})
 	}
