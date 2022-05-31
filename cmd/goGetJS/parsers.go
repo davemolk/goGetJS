@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -60,12 +61,6 @@ func getJS(client *http.Client, url string, query interface{}) error {
 	if err != nil {
 		return fmt.Errorf("could not make script request: %v", err)
 	}
-	// term := query
-	// err = parseScripts(res, term)
-	// if err != nil {
-	// 	return fmt.Errorf("no script available: %v", err)
-	// }
-
 
 	defer res.Body.Close()
 	doc, err := goquery.NewDocumentFromReader(res.Body)
@@ -77,10 +72,24 @@ func getJS(client *http.Client, url string, query interface{}) error {
 	url = currentURL.String()
 
 	switch v := query.(type) {
+	case *regexp.Regexp:
+		log.Println("in regex branch")
+		if v.FindAllString(script, -1) != nil {
+			fmt.Printf("\nFound %q in %s\n", v.FindAllString(script, -1), url)
+		}
+
+		if script != "" {
+			err := writeScripts(script, url)
+			if err != nil {
+				return fmt.Errorf("unable to write script file: %q", err)
+			}
+			return nil
+		}
+
 	case string:
 		log.Println("in the string case")
 		if strings.Contains(script, v) {
-			fmt.Printf("\nFound %q in %s", v, url)
+			fmt.Printf("\nFound %q in %s\n", v, url)
 		}
 	
 		if script != "" {
@@ -93,46 +102,6 @@ func getJS(client *http.Client, url string, query interface{}) error {
 	default:
 		fmt.Printf("in default, query is %T", query)
 
-	}
-
-	// if strings.Contains(script, term) {
-	// 	fmt.Printf("\nFound %q in %s", term, url)
-	// }
-
-	// if script != "" {
-	// 	err := writeScripts(script, url)
-	// 	if err != nil {
-	// 		return fmt.Errorf("unable to write script file: %q", err)
-	// 	}
-	// 	return nil
-	// }
-
-	return fmt.Errorf("no scripts at %v", url)
-
-
-	return nil
-}
-
-func parseScripts(res *http.Response, term string) error {
-	defer res.Body.Close()
-	doc, err := goquery.NewDocumentFromReader(res.Body)
-	if err != nil {
-		return fmt.Errorf("unable to parse script page: %q", err)
-	}
-	script := doc.Find("body").Text()
-	currentURL := *res.Request.URL
-	url := currentURL.String()
-
-	if strings.Contains(script, term) {
-		fmt.Printf("\nFound %q in %s", term, url)
-	}
-
-	if script != "" {
-		err := writeScripts(script, url)
-		if err != nil {
-			return fmt.Errorf("unable to write script file: %q", err)
-		}
-		return nil
 	}
 
 	return fmt.Errorf("no scripts at %v", url)

@@ -13,18 +13,15 @@ import (
 )
 
 func main() {
+	var term string
+	var reg string
+
 	url := flag.String("url", "https://go.dev", "url to get JavaScript from")
 	timeout := flag.Int("timeout", 5, "timeout for request")
 	useBrowswer := flag.Bool("browser", false, "run playwright for JS-intensive sites (default is false")
 	extraWait := flag.Int("extraWait", 0, "wait (in seconds) for longer network events, only applies when browser=true. default is 0 seconds")
-	term := flag.String("term", "", "search term")
-	regex := flag.String("re", "", "regex expression")
-
-	// maybe wait on this, convert to string in the moment?
-	if len(*regex) > 0 {
-		re := regexp.MustCompile(*regex) 
-		_ = re
-	}
+	flag.StringVar(&term, "term", "", "search term")
+	flag.StringVar(&reg, "regex", "", "regex expression")
 
 	flag.Parse()
 
@@ -38,7 +35,7 @@ func main() {
 	var reader io.Reader
 
 	if *useBrowswer {
-		reader, err = browser(*url, *term, *extraWait, client)
+		reader, err = browser(*url, term, *extraWait, client)
 		if err != nil {
 			log.Println("error for use browser")
 		}		
@@ -56,9 +53,13 @@ func main() {
 	assertErrorToNilf("could not write src list to file: %v", err)
 	
 	var query interface{}
-	termValue := *term
-	query = termValue
-	
+	if len(reg) > 0 {
+		re := regexp.MustCompile(reg)
+		query = re // need to compile here...
+	} else {
+		query = term
+	}
+
 	group := new(errgroup.Group)
 	for _, url := range scriptsSRC {
 		url := url

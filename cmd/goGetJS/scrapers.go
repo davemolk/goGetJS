@@ -38,28 +38,4 @@ func browser(url, term string, extraWait int, client *http.Client) (io.Reader, e
 	assertErrorToNilf("could not get html from playwright: %v", err)
 
 	return strings.NewReader(htmlDoc), nil
-
-	// scriptsSRC, counter, err := parseDoc(strings.NewReader(htmlDoc), url)
-	// assertErrorToNilf("could not parse browser HTML: %v", err)
-
-	// err = writeFile(scriptsSRC, "scriptSRC.txt")
-	// assertErrorToNilf("could not write src list to file: %v", err)
-	
-	// group := new(errgroup.Group)
-	// for _, url := range scriptsSRC {
-	// 	url := url
-	// 	group.Go(func() error {
-	// 		err := getJS(client, url, term)
-	// 		return err
-	// 	})
-	// }
-
-	// counter = counter + len(scriptsSRC)
-
-	// if err := group.Wait(); err != nil {
-	// 	log.Println("error fetching script: ", err)
-	// 	counter--
-	// }
-
-	// fmt.Printf("\nsuccessfully wrote %d scripts\n", counter)
 }
