@@ -71,10 +71,10 @@ func getJS(client *http.Client, url string, query interface{}, r *regexp.Regexp)
 	currentURL := *res.Request.URL
 	url = currentURL.String()
 
-	switch v := query.(type) {
+	switch q := query.(type) {
 	case *regexp.Regexp:
-		if v.FindAllString(script, -1) != nil {
-			fmt.Printf("\nFound %q in %s\n", v.FindAllString(script, -1), url)
+		if q.FindAllString(script, -1) != nil {
+			fmt.Printf("\nFound %q in %s\n", q.FindAllString(script, -1), url)
 		}
 
 		if script != "" {
@@ -84,12 +84,12 @@ func getJS(client *http.Client, url string, query interface{}, r *regexp.Regexp)
 			}
 			return nil
 		}
-
 	case string:
-		if strings.Contains(script, v) {
-			fmt.Printf("\nFound %q in %s\n", v, url)
+		if q != "" {
+			if strings.Contains(script, q) {
+				fmt.Printf("\nFound %q in %s\n", q, url)
+			}
 		}
-	
 		if script != "" {
 			err := writeScripts(script, url, r)
 			if err != nil {
@@ -97,8 +97,24 @@ func getJS(client *http.Client, url string, query interface{}, r *regexp.Regexp)
 			}
 			return nil
 		}
+	case []string:
+		log.Println("file input as a slice")
+		// use goroutines here
+		for _, v := range q {
+			if strings.Contains(script, v) {
+				fmt.Printf("\nFound %q in %s\n", v, url)
+			}
+			if script != "" {
+				err := writeScripts(script, url, r)
+				if err != nil {
+					return fmt.Errorf("unable to write script file: %q", err)
+				}
+				return nil
+			}
+		}
+
 	default:
-		fmt.Printf("in default, query is %T", query)
+		return fmt.Errorf("malformed query: %v", err)
 
 	}
 

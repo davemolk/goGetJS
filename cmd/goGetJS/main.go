@@ -15,6 +15,7 @@ import (
 func main() {
 	var term string
 	var reg string
+	var inputFile string
 
 	url := flag.String("url", "https://go.dev", "url to get JavaScript from")
 	timeout := flag.Int("timeout", 5, "timeout for request")
@@ -22,6 +23,7 @@ func main() {
 	extraWait := flag.Int("extraWait", 0, "wait (in seconds) for longer network events, only applies when browser=true. default is 0 seconds")
 	flag.StringVar(&term, "term", "", "search term")
 	flag.StringVar(&reg, "regex", "", "regex expression")
+	flag.StringVar(&inputFile, "file", "", "file containing a list of search terms")
 
 	flag.Parse()
 
@@ -54,6 +56,14 @@ func main() {
 	if len(reg) > 0 {
 		re := regexp.MustCompile(reg)
 		query = re
+	} else if len(inputFile) > 0 {
+		f, err := os.Open(inputFile)
+		assertErrorToNilf("could not open the input file: %v", err)
+		defer f.Close()
+
+		lines, err := readLines(f)
+		assertErrorToNilf("could not read input file: %v", err)
+		query = lines
 	} else {
 		query = term
 	}
