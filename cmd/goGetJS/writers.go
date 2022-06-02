@@ -22,7 +22,9 @@ func writeFile(scripts []string, fileName string) error {
 	}
 	defer f.Close()
 	for _, v := range scripts {
-		fmt.Fprintln(f, v)
+		if _, err := fmt.Fprintln(f, v); err != nil {
+			return err
+		}
 	}
 	return nil
 }

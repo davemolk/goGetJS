@@ -38,7 +38,7 @@ func main() {
 
 	if *useBrowswer {
 		reader, err = browser(*url, *extraWait, client)
-		assertErrorToNilf("could not make request with browser: %v", err)	
+		assertErrorToNilf("could not make request with browser: %v", err)
 	} else {
 		res, err := makeRequest(*url, client)
 		assertErrorToNilf("could not make request: %v", err)
@@ -47,18 +47,18 @@ func main() {
 	}
 
 	scriptsSRC, counter, err := parseDoc(reader, *url)
-	assertErrorToNilf("could not parse browser HTML: %v", err)
+	assertErrorToNilf("could not parse HTML: %v", err)
 
 	err = writeFile(scriptsSRC, "scriptSRC.txt")
 	assertErrorToNilf("could not write src list to file: %v", err)
-	
+
 	var query interface{}
 	if len(reg) > 0 {
 		re := regexp.MustCompile(reg)
 		query = re
 	} else if len(inputFile) > 0 {
 		f, err := os.Open(inputFile)
-		assertErrorToNilf("could not open the input file: %v", err)
+		assertErrorToNilf("could not open input file: %v", err)
 		defer f.Close()
 
 		lines, err := readLines(f)
@@ -68,12 +68,12 @@ func main() {
 		query = term
 	}
 
-	fileNamer := regexp.MustCompile(`[\w-]+(\.js)?$`)
+	fName := regexp.MustCompile(`[\w-]+(\.js)?$`)
 	group := new(errgroup.Group)
 	for _, url := range scriptsSRC {
 		url := url
 		group.Go(func() error {
-			err := getJS(client, url, query, fileNamer)
+			err := getJS(client, url, query, fName)
 			return err
 		})
 	}
