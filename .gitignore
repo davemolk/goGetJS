@@ -1,5 +1,6 @@
 scriptSRC.txt
 todo.md
+data/
 # Binaries for programs and plugins
 *.exe
 *.exe~

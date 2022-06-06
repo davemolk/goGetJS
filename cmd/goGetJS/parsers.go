@@ -14,7 +14,7 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-func parseDoc(r io.Reader, baseURL string) ([]string, int, error) {
+func parseDoc(r io.Reader, baseURL string, query interface{}) ([]string, int, error) {
 	scriptsSRC := []string{}
 	doc, err := goquery.NewDocumentFromReader(r)
 	if err != nil {
@@ -37,6 +37,8 @@ func parseDoc(r io.Reader, baseURL string) ([]string, int, error) {
 		} else {
 			// handling scripts without src
 			script := strings.TrimSpace(s.Text())
+
+			searchScript(query, baseURL, script)
 
 			// write scripts to file
 			scriptByte := []byte(script)
@@ -70,31 +72,30 @@ func getJS(client *http.Client, url string, query interface{}, r *regexp.Regexp)
 	}
 	script := doc.Find("body").Text()
 
+	searchScript(query, url, script)
+
+	if script != "" {
+		err := writeScripts(script, url, r)
+		if err != nil {
+			return fmt.Errorf("unable to write script file: %v", err)
+		}
+		return nil
+	}
+
+	return fmt.Errorf("no scripts found at %v", url)
+}
+
+func searchScript(query interface{}, url, script string) {
 	switch q := query.(type) {
 	case *regexp.Regexp:
 		if q.FindAllString(script, -1) != nil {
 			fmt.Printf("\n*** found %q in %s ***\n", q.FindAllString(script, -1), url)
-		}
-
-		if script != "" {
-			err := writeScripts(script, url, r)
-			if err != nil {
-				return fmt.Errorf("unable to write script file: %v", err)
-			}
-			return nil
 		}
 	case string:
 		if q != "" {
 			if strings.Contains(script, q) {
 				fmt.Printf("\n*** found %q in %s ***\n", q, url)
 			}
-		}
-		if script != "" {
-			err := writeScripts(script, url, r)
-			if err != nil {
-				return fmt.Errorf("unable to write script file: %v", err)
-			}
-			return nil
 		}
 	case []string:
 		var g errgroup.Group
@@ -104,13 +105,6 @@ func getJS(client *http.Client, url string, query interface{}, r *regexp.Regexp)
 				if strings.Contains(script, t) {
 					fmt.Printf("\n*** found %q in %s ***\n", t, url)
 				}
-				if script != "" {
-					err := writeScripts(script, url, r)
-					if err != nil {
-						return fmt.Errorf("unable to write script file for %s: %v", url, err)
-					}
-					return nil
-				}
 				return nil
 			})
 		}
@@ -118,12 +112,7 @@ func getJS(client *http.Client, url string, query interface{}, r *regexp.Regexp)
 		if err != nil {
 			fmt.Printf("error during search: %v", err)
 		}
-		fmt.Println("search completed")
-		return nil
-
 	default:
-		return fmt.Errorf("malformed query, please try again: %v", err)
+		fmt.Println("malformed query, please try again")
 	}
-
-	return fmt.Errorf("no scripts found at %v", url)
 }

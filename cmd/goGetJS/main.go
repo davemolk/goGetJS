@@ -46,12 +46,6 @@ func main() {
 		defer res.Body.Close()
 	}
 
-	scriptsSRC, counter, err := parseDoc(reader, *url)
-	assertErrorToNilf("could not parse HTML: %v", err)
-
-	err = writeFile(scriptsSRC, "scriptSRC.txt")
-	assertErrorToNilf("could not write src list to file: %v", err)
-
 	var query interface{}
 	if len(reg) > 0 {
 		re := regexp.MustCompile(reg)
@@ -67,6 +61,12 @@ func main() {
 	} else {
 		query = term
 	}
+
+	scriptsSRC, counter, err := parseDoc(reader, *url, query)
+	assertErrorToNilf("could not parse HTML: %v", err)
+
+	err = writeFile(scriptsSRC, "scriptSRC.txt")
+	assertErrorToNilf("could not write src list to file: %v", err)
 
 	fName := regexp.MustCompile(`[\w-]+(\.js)?$`)
 	group := new(errgroup.Group)
