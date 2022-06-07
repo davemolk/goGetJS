@@ -68,7 +68,9 @@ func main() {
 	err = writeFile(scriptsSRC, "scriptSRC.txt")
 	assertErrorToNilf("could not write src list to file: %v", err)
 
+	// handling situations when javascript src doesn't end with .js
 	fName := regexp.MustCompile(`[\w-]+(\.js)?$`)
+
 	group := new(errgroup.Group)
 	for _, url := range scriptsSRC {
 		url := url

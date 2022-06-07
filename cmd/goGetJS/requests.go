@@ -7,6 +7,7 @@ import (
 	"time"
 )
 
+// makeClient takes in a flag-specified timeout and returns an *http.Client.
 func makeClient(timeout int) *http.Client {
 	return &http.Client{
 		Timeout: time.Duration(timeout) * time.Second,
@@ -16,6 +17,8 @@ func makeClient(timeout int) *http.Client {
 	}
 }
 
+// makeRequest takes in a url and a client, forms a new GET request, sets a random
+// user agent, and then returns the response and any errors.
 func makeRequest(url string, client *http.Client) (*http.Response, error) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -32,6 +35,7 @@ func makeRequest(url string, client *http.Client) (*http.Response, error) {
 	return res, nil
 }
 
+// randomUA returns a user agent randomly drawn from six possibilities.
 func randomUA() string {
 	userAgents := getUA()
 	r := rand.New(rand.NewSource(time.Now().Unix()))
@@ -40,6 +44,7 @@ func randomUA() string {
 	return userAgents[rando]
 }
 
+// getUA returns a string slice of six user agents.
 func getUA() []string {
 	return []string{
 		"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.127 Safari/537.36",

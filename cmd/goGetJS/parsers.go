@@ -15,6 +15,10 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+// parseDoc searches a page for script tags, returning a string slice of all found src, the
+// number found, and any errors. When a script tag does not have an src attribute, parseDoc
+// writes the contents between the script tags as an anonymous javascript file. If no src are
+// found on the page, parseDoc returns the html as a string to aid in debugging.
 func parseDoc(r io.Reader, myUrl string, query interface{}) ([]string, int, error) {
 	scriptsSRC := []string{}
 	doc, err := goquery.NewDocumentFromReader(r)
@@ -62,29 +66,30 @@ func parseDoc(r io.Reader, myUrl string, query interface{}) ([]string, int, erro
 		return scriptsSRC, anonCount, nil
 	}
 
-	// return html if no src is found 
+	// return html if no src is found
 	html, _ := doc.Html()
 	return scriptsSRC, anonCount, fmt.Errorf("no src found at %v\nif your url isn't the root domain, consider adding/removing a trailing slash\n%v", myUrl, html)
 }
 
+// getJS retrieves and then writes the contents a url (in this case, each src) to an individual javascript file.
 func getJS(client *http.Client, url string, query interface{}, r *regexp.Regexp) error {
 	log.Println("getting JavaScript from:", url)
 	res, err := makeRequest(url, client)
 	if err != nil {
-		return fmt.Errorf("could not make request at %v: %v", url, err)
+		return fmt.Errorf("could not make request at %s: %v", url, err)
 	}
 
 	defer res.Body.Close()
 	doc, err := goquery.NewDocumentFromReader(res.Body)
 	if err != nil {
-		return fmt.Errorf("unable to parse %v: %v", url, err)
+		return fmt.Errorf("unable to parse %s: %v", url, err)
 	}
 	script := doc.Find("body").Text()
 
 	searchScript(query, url, script)
 
 	if script != "" {
-		err := writeScripts(script, url, r)
+		err := writeScript(script, url, r)
 		if err != nil {
 			return fmt.Errorf("unable to write script file: %v", err)
 		}
@@ -94,6 +99,8 @@ func getJS(client *http.Client, url string, query interface{}, r *regexp.Regexp)
 	return fmt.Errorf("no scripts found at %v", url)
 }
 
+// searchScript takes a query (as an empty interface), a url, and the script to be searched,
+// printing any found instances to the console.
 func searchScript(query interface{}, url, script string) {
 	switch q := query.(type) {
 	case *regexp.Regexp:

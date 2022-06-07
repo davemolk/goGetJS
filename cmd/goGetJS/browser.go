@@ -11,6 +11,9 @@ import (
 	"github.com/playwright-community/playwright-go"
 )
 
+// browser uses a headless browser (playwright) to scrape a site, waiting until there are no
+// network connections for at least 500ms (unless a longer wait is requested via the extraWait) flag.
+// browser returns an io.Reader and an error.
 func browser(url string, extraWait int, client *http.Client) (io.Reader, error) {
 	pw, err := playwright.Run()
 	if err != nil {
