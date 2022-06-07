@@ -55,7 +55,9 @@ func parseDoc(r io.Reader, baseURL string, query interface{}) ([]string, int, er
 		return scriptsSRC, anonCount, nil
 	}
 
-	return scriptsSRC, anonCount, fmt.Errorf("no src found at %v", baseURL)
+	// return html if no src is found 
+	html, _ := doc.Html()
+	return scriptsSRC, anonCount, fmt.Errorf("no src found at %v\nif url isn't the root domain, consider adding/removing the trailing slash\n%v", baseURL, html)
 }
 
 func getJS(client *http.Client, url string, query interface{}, r *regexp.Regexp) error {
