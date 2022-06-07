@@ -12,8 +12,6 @@ import (
 )
 
 func browser(url string, extraWait int, client *http.Client) (io.Reader, error) {
-	url = strings.TrimSuffix(url, "/")
-
 	pw, err := playwright.Run()
 	if err != nil {
 		return nil, fmt.Errorf("could not start playwright: %v", err)

@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"regexp"
 	"strconv"
@@ -14,7 +15,7 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-func parseDoc(r io.Reader, baseURL string, query interface{}) ([]string, int, error) {
+func parseDoc(r io.Reader, myUrl string, query interface{}) ([]string, int, error) {
 	scriptsSRC := []string{}
 	doc, err := goquery.NewDocumentFromReader(r)
 	if err != nil {
@@ -23,14 +24,20 @@ func parseDoc(r io.Reader, baseURL string, query interface{}) ([]string, int, er
 
 	anonCount := 0
 
+	u, err := url.Parse(myUrl)
+	if err != nil {
+		return scriptsSRC, 0, fmt.Errorf("unable to parse URL: %v", err)
+	}
+
 	doc.Find("script").Each(func(i int, s *goquery.Selection) {
 		// handling scripts with src
 		if value, ok := s.Attr("src"); ok {
 			if !strings.HasPrefix(value, "http") {
-				if !strings.HasPrefix(value, "/") {
-					value = fmt.Sprintf("/%s", value)
+				rel, err := u.Parse(value)
+				if err != nil {
+					log.Printf("unable to parse %v: \n%v\n", value, err)
 				}
-				scriptsSRC = append(scriptsSRC, baseURL+value)
+				scriptsSRC = append(scriptsSRC, rel.String())
 			} else {
 				scriptsSRC = append(scriptsSRC, value)
 			}
@@ -38,7 +45,7 @@ func parseDoc(r io.Reader, baseURL string, query interface{}) ([]string, int, er
 			// handling scripts without src
 			script := strings.TrimSpace(s.Text())
 
-			searchScript(query, baseURL, script)
+			searchScript(query, myUrl, script)
 
 			// write scripts to file
 			scriptByte := []byte(script)
@@ -57,7 +64,7 @@ func parseDoc(r io.Reader, baseURL string, query interface{}) ([]string, int, er
 
 	// return html if no src is found 
 	html, _ := doc.Html()
-	return scriptsSRC, anonCount, fmt.Errorf("no src found at %v\nif url isn't the root domain, consider adding/removing the trailing slash\n%v", baseURL, html)
+	return scriptsSRC, anonCount, fmt.Errorf("no src found at %v\nif your url isn't the root domain, consider adding/removing a trailing slash\n%v", myUrl, html)
 }
 
 func getJS(client *http.Client, url string, query interface{}, r *regexp.Regexp) error {
