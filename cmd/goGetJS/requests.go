@@ -22,17 +22,17 @@ func makeClient(timeout int) *http.Client {
 func makeRequest(url string, client *http.Client) (*http.Response, error) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return nil, fmt.Errorf("unable to create request: %v", err)
+		return nil, fmt.Errorf("unable to create request for %v: %v", url, err)
 	}
 
 	uAgent := randomUA()
 	req.Header.Set("User-Agent", uAgent)
 
-	res, err := client.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to get response for %v: %v", url, err)
 	}
-	return res, nil
+	return resp, nil
 }
 
 // randomUA returns a user agent randomly drawn from six possibilities.

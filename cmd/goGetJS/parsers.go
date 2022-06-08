@@ -10,9 +10,9 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/PuerkitoBio/goquery"
-	"golang.org/x/sync/errgroup"
 )
 
 // parseDoc searches a page for script tags, returning a string slice of all found src, the
@@ -20,30 +20,30 @@ import (
 // writes the contents between the script tags as an anonymous javascript file. If no src are
 // found on the page, parseDoc returns the html as a string to aid in debugging.
 func parseDoc(r io.Reader, myUrl string, query interface{}) ([]string, int, error) {
-	scriptsSRC := []string{}
+	srcs := []string{}
 	doc, err := goquery.NewDocumentFromReader(r)
 	if err != nil {
-		return scriptsSRC, 0, fmt.Errorf("could not read HTML with goquery: %v", err)
+		return srcs, 0, fmt.Errorf("could not create goquery doc for %v: %v", myUrl, err)
 	}
 
 	anonCount := 0
 
 	u, err := url.Parse(myUrl)
 	if err != nil {
-		return scriptsSRC, 0, fmt.Errorf("unable to parse URL: %v", err)
+		return srcs, 0, fmt.Errorf("could not parse %v URL: %v", myUrl, err)
 	}
 
 	doc.Find("script").Each(func(i int, s *goquery.Selection) {
 		// handling scripts with src
-		if value, ok := s.Attr("src"); ok {
-			if !strings.HasPrefix(value, "http") {
-				rel, err := u.Parse(value)
+		if src, ok := s.Attr("src"); ok {
+			if !strings.HasPrefix(src, "http") {
+				rel, err := u.Parse(src)
 				if err != nil {
-					log.Printf("unable to parse %v: \n%v\n", value, err)
+					log.Printf("unable to parse %v (found on %v):\n%v", src, myUrl, err)
 				}
-				scriptsSRC = append(scriptsSRC, rel.String())
+				srcs = append(srcs, rel.String())
 			} else {
-				scriptsSRC = append(scriptsSRC, value)
+				srcs = append(srcs, src)
 			}
 		} else {
 			// handling scripts without src
@@ -56,36 +56,36 @@ func parseDoc(r io.Reader, myUrl string, query interface{}) ([]string, int, erro
 			anonCount++
 			scriptName := fmt.Sprintf("anon%s.js", strconv.Itoa(anonCount))
 			if err := os.WriteFile("data/"+scriptName, scriptByte, 0644); err != nil {
-				log.Printf("could not write anon script %q: %v", scriptName, err)
+				log.Printf("could not write %q: %v", scriptName, err)
 				anonCount--
 			}
 		}
 	})
 
-	if len(scriptsSRC) != 0 {
-		return scriptsSRC, anonCount, nil
+	if len(srcs) != 0 {
+		return srcs, anonCount, nil
 	}
 
-	// return html if no src is found
+	// no src found
 	html, _ := doc.Html()
-	return scriptsSRC, anonCount, fmt.Errorf("no src found at %v\nif your url isn't the root domain, consider adding/removing a trailing slash\n%v", myUrl, html)
+	return srcs, anonCount, fmt.Errorf("no src found at %v\nif your url isn't the root domain, consider adding/removing a trailing slash\n%v", myUrl, html)
 }
 
 // getJS retrieves and then writes the contents a url (in this case, each src) to an individual javascript file.
 func getJS(client *http.Client, url string, query interface{}, r *regexp.Regexp) error {
-	log.Println("getting JavaScript from:", url)
-	res, err := makeRequest(url, client)
+	log.Println("extracting JavaScript from:", url)
+	resp, err := makeRequest(url, client)
 	if err != nil {
 		return fmt.Errorf("could not make request at %s: %v", url, err)
 	}
 
-	defer res.Body.Close()
-	doc, err := goquery.NewDocumentFromReader(res.Body)
+	defer resp.Body.Close()
+	doc, err := goquery.NewDocumentFromReader(resp.Body)
 	if err != nil {
-		return fmt.Errorf("unable to parse %s: %v", url, err)
+		return fmt.Errorf("could not create goquery doc for %s: %v", url, err)
 	}
-	script := doc.Find("body").Text()
 
+	script := doc.Find("body").Text()
 	searchScript(query, url, script)
 
 	if script != "" {
@@ -108,26 +108,21 @@ func searchScript(query interface{}, url, script string) {
 			fmt.Printf("\n*** found %q in %s ***\n", q.FindAllString(script, -1), url)
 		}
 	case string:
-		if q != "" {
-			if strings.Contains(script, q) {
-				fmt.Printf("\n*** found %q in %s ***\n", q, url)
-			}
+		if q != "" && strings.Contains(script, q) {
+			fmt.Printf("\n*** found %q in %s ***\n", q, url)
 		}
 	case []string:
-		var g errgroup.Group
+		var wg sync.WaitGroup
 		for _, term := range q {
-			t := term
-			g.Go(func() error {
+			wg.Add(1)
+			go func(t string) {
 				if strings.Contains(script, t) {
 					fmt.Printf("\n*** found %q in %s ***\n", t, url)
 				}
-				return nil
-			})
+				wg.Done()
+			}(term)
 		}
-		err := g.Wait()
-		if err != nil {
-			fmt.Printf("error during search: %v", err)
-		}
+		wg.Wait()
 	default:
 		fmt.Println("malformed query, please try again")
 	}

@@ -22,7 +22,7 @@ func browser(url string, extraWait int, client *http.Client) (io.Reader, error) 
 
 	browser, err := pw.Chromium.Launch()
 	if err != nil {
-		return nil, fmt.Errorf("could not launch useBrowswer: %v", err)
+		return nil, fmt.Errorf("could not launch browswer: %v", err)
 	}
 
 	uAgent := randomUA()
@@ -30,12 +30,12 @@ func browser(url string, extraWait int, client *http.Client) (io.Reader, error) 
 		UserAgent: playwright.String(uAgent),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("could not create context: %v", err)
+		return nil, fmt.Errorf("could not create browser context: %v", err)
 	}
 
 	page, err := context.NewPage()
 	if err != nil {
-		return nil, fmt.Errorf("could not create page: %v", err)
+		return nil, fmt.Errorf("could not create browser page: %v", err)
 	}
 
 	_, err = page.Goto(url, playwright.PageGotoOptions{
