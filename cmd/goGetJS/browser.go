@@ -55,8 +55,15 @@ func browser(url string, extraWait int, client *http.Client) (io.Reader, error) 
 		return nil, fmt.Errorf("could not get html from playwright: %v", err)
 	}
 
-	assertErrorToNilf("could not close browser: %v", browser.Close())
-	assertErrorToNilf("could not stop playwright: %v", pw.Stop())
+	err = browser.Close()
+	if err != nil {
+		return nil, fmt.Errorf("could not close browser: %v", err)
+	}
+
+	err = pw.Stop()
+	if err != nil {
+		return nil, fmt.Errorf("could not stop playwright: %v", err)
+	}
 
 	return strings.NewReader(htmlDoc), nil
 }

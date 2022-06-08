@@ -12,3 +12,4 @@
 * Flags are pretty self-explanatory and include: url, timeout, browser, extraWait, term, regex, file.
 * By default, playwright waits until the network has been idle for at least 500ms before considering the page loaded. You can use the -extraWait flag (measured in seconds) to extend this duration.
 * When naming js files, goGetJS attempts to use the format <name.js>. In the event that it can't, it will grab a long chunk of [\w-].
+* Include just one term per line when inputting a file of terms to search.
