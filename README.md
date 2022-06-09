@@ -16,12 +16,8 @@ goGetJS extracts, searches, and saves JavaScript files. Includes an optional bro
 ## Additional Notes
 * Possible flags: url, timeout, browser, extraWait, term, regex, file.
 * By default, playwright waits until the network has been idle for at least 500ms before considering the page loaded. You can use the -extraWait flag (measured in seconds) for an additional wait period.
-* goGetJS names JavaScript files with ```fName := regexp.MustCompile(`[\w-]+(\.js)?$`)```. Most scripts play nice, but those that don't are still saved.
 * When editing search.txt for your own use (or creating your own file), include just one term per line.
-
-## Built With
-* https://github.com/PuerkitoBio/goquery
-* https://github.com/playwright-community/playwright-go
+* goGetJS names JavaScript files with ```fName := regexp.MustCompile(`[\w-]+(\.js)?$`)```. Most scripts play nice, but those that don't are still saved.
 
 ## Support
 * Like goGetJS? Use it, star it, and share with your friends!
@@ -31,5 +27,9 @@ goGetJS extracts, searches, and saves JavaScript files. Includes an optional bro
 * Pull request?
     - Please discuss in an issue first. 
 
+## Built With
+* https://github.com/PuerkitoBio/goquery
+* https://github.com/playwright-community/playwright-go
+
 ## License
-goGetJS is released under the MIT license. See [LICENSE](LICENSE) for details.
+* goGetJS is released under the MIT license. See [LICENSE](LICENSE) for details.
