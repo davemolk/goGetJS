@@ -4,7 +4,7 @@
 [![contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](https://github.com/davemolk/goGetJS/issues)
 
 goGetJS extracts, searches, and saves JavaScript files. Includes an optional browser (playwright) for dealing with JavaScript-heavy sites.
-
+![demo](demo.gif)
 ## Overview
 * goGetJS scrapes a given page for script tags, visits each src, and writes the contents to an individual file.
 * All src are also saved to a text file.
