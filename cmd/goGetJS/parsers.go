@@ -36,6 +36,7 @@ func parseDoc(r io.Reader, myUrl string, query interface{}) ([]string, int, erro
 	doc.Find("script").Each(func(i int, s *goquery.Selection) {
 		// handling scripts with src
 		if src, ok := s.Attr("src"); ok {
+			src = strings.TrimSpace(src)
 			if !strings.HasPrefix(src, "http") {
 				rel, err := u.Parse(src)
 				if err != nil {
