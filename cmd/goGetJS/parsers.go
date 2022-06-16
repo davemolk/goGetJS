@@ -81,12 +81,13 @@ func getJS(client *http.Client, url string, query interface{}, r *regexp.Regexp)
 	}
 
 	defer resp.Body.Close()
-	doc, err := goquery.NewDocumentFromReader(resp.Body)
-	if err != nil {
-		return fmt.Errorf("could not create goquery doc for %s: %v", url, err)
-	}
 
-	script := doc.Find("body").Text()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("could not read response body for %s: %v", url, err)
+	}
+	script := string(body)
+
 	searchScript(query, url, script)
 
 	if script != "" {
