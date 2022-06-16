@@ -98,7 +98,27 @@ func getJS(client *http.Client, url string, query interface{}, r *regexp.Regexp)
 		return nil
 	}
 
+	// catch := quickSearch(url)
+	go quickSearch(url, r)
+
 	return fmt.Errorf("no scripts found at %v", url)
+}
+
+func quickSearch(url string, r *regexp.Regexp) {
+	resp, err := http.Get(url)
+	if err != nil {
+		log.Println(err)
+	}
+	defer resp.Body.Close()
+	b, _ := io.ReadAll(resp.Body)
+	if string(b) != "" {
+		log.Println("************************************************ found it")
+		log.Printf("%s\n %s", url, string(b)[:20])
+		writeScript(string(b), url, r)
+		if err != nil {
+			fmt.Printf("unable to write script file: %v", err)
+		}
+	}
 }
 
 // searchScript takes a query (as an empty interface), a url, and the script to be searched,
