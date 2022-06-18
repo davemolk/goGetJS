@@ -66,7 +66,7 @@ func main() {
 	}
 
 	// parse for src, writing javascript files without src
-	srcs, counter, err := parseDoc(reader, *url, query)
+	srcs, anonCount, err := parseDoc(reader, *url, query)
 	assertErrorToNilf("could not parse HTML: %v", err)
 
 	// write src text file
@@ -83,13 +83,13 @@ func main() {
 		g.Go(func() error {
 			err := getJS(client, src, query, fName)
 			if err != nil {
-				return fmt.Errorf("could not write script at %v: %v", src, err)
+				return fmt.Errorf("error while processing %v: %v", src, err)
 			}
 			return nil
 		})
 	}
 
-	counter = counter + len(srcs)
+	counter := anonCount + len(srcs)
 
 	if err := g.Wait(); err != nil {
 		log.Printf("error with extract/search/write: %v", err)

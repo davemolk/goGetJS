@@ -68,13 +68,16 @@ func parseDoc(r io.Reader, myUrl string, query interface{}) ([]string, int, erro
 	}
 
 	// no src found
-	html, _ := doc.Html()
+	html, err := doc.Html()
+	if err != nil {
+		return srcs, anonCount, fmt.Errorf("unable to get HTML for %v: %v", myUrl, err)
+	}
 	return srcs, anonCount, fmt.Errorf("no src found at %v\nif your url isn't the root domain, consider adding/removing a trailing slash\n%v", myUrl, html)
 }
 
 // getJS retrieves and then writes the contents a url (in this case, each src) to an individual javascript file.
 func getJS(client *http.Client, url string, query interface{}, r *regexp.Regexp) error {
-	log.Println("extracting JavaScript from:", url)
+	log.Println("extracting from:", url)
 	resp, err := makeRequest(url, client)
 	if err != nil {
 		return fmt.Errorf("could not make request at %s: %v", url, err)
@@ -86,6 +89,13 @@ func getJS(client *http.Client, url string, query interface{}, r *regexp.Regexp)
 	if err != nil {
 		return fmt.Errorf("could not read response body for %s: %v", url, err)
 	}
+
+	// retry (short timeout and allowing redirects)
+	if len(body) == 0 {
+		// maybe count the number of unsuccessful retries and subtract from src count...
+		go quickRetry(url, query, r)
+	}
+
 	script := string(body)
 
 	searchScript(query, url, script)
@@ -97,28 +107,8 @@ func getJS(client *http.Client, url string, query interface{}, r *regexp.Regexp)
 		}
 		return nil
 	}
-
-	// catch := quickSearch(url)
-	go quickSearch(url, r)
-
-	return fmt.Errorf("no scripts found at %v", url)
-}
-
-func quickSearch(url string, r *regexp.Regexp) {
-	resp, err := http.Get(url)
-	if err != nil {
-		log.Println(err)
-	}
-	defer resp.Body.Close()
-	b, _ := io.ReadAll(resp.Body)
-	if string(b) != "" {
-		log.Println("************************************************ found it")
-		log.Printf("%s\n %s", url, string(b)[:20])
-		writeScript(string(b), url, r)
-		if err != nil {
-			fmt.Printf("unable to write script file: %v", err)
-		}
-	}
+	
+	return nil
 }
 
 // searchScript takes a query (as an empty interface), a url, and the script to be searched,

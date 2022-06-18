@@ -1,9 +1,13 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"io"
+	"log"
 	"math/rand"
 	"net/http"
+	"regexp"
 	"time"
 )
 
@@ -33,6 +37,41 @@ func makeRequest(url string, client *http.Client) (*http.Response, error) {
 		return nil, fmt.Errorf("unable to get response for %v: %v", url, err)
 	}
 	return resp, nil
+}
+
+// quickRetry uses a short timeout and allows redirects. It's called within getJS
+// to retry any src showing no text on the page.
+func quickRetry(url string, query interface{}, r *regexp.Regexp) {
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		log.Printf("unable to create request for retry of %s: %v", url, err)
+		return
+	}
+
+	uAgent := randomUA()
+	req.Header.Set("User-Agent", uAgent)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		log.Printf("unable to get response for retry of %s: %v", url, err)
+		return
+	}
+	defer resp.Body.Close()
+
+	b, err := io.ReadAll(resp.Body)
+	script := string(b)
+	
+	if script != "" {
+		log.Printf("retry for %s was successful\n", url)
+		searchScript(query, url, script)
+		writeScript(script, url, r)
+		if err != nil {
+			log.Printf("retry for %s was unsuccessful: unable to write script file: %v", url, err)
+			return
+		}
+	}
 }
 
 // randomUA returns a user agent randomly drawn from six possibilities.
