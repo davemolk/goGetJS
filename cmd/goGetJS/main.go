@@ -19,6 +19,7 @@ func main() {
 
 	url := flag.String("url", "https://go.dev", "url for getting JavaScript")
 	timeout := flag.Int("timeout", 5, "timeout for request")
+	browserTimeout := flag.Float64("browserTimeout", 10000, "browser timeout")
 	useBrowswer := flag.Bool("browser", false, "use playwright to handle JS-intensive sites (default is false")
 	extraWait := flag.Int("extraWait", 0, "additional wait (in seconds) when using a browser. default is 0 seconds")
 	flag.StringVar(&term, "term", "", "search JavaScript for a particular term")
@@ -38,7 +39,7 @@ func main() {
 
 	// get reader
 	if *useBrowswer {
-		reader, err = browser(*url, *extraWait, client)
+		reader, err = browser(*url, browserTimeout, *extraWait, client)
 		assertErrorToNilf("could not make request with browser: %v", err)
 	} else {
 		resp, err := makeRequest(*url, client)

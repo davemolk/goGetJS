@@ -14,7 +14,7 @@ import (
 // browser uses a headless browser (playwright) to scrape a site, waiting until there are no
 // network connections for at least 500ms (unless a longer wait is requested via the extraWait) flag.
 // browser returns an io.Reader and an error.
-func browser(url string, extraWait int, client *http.Client) (io.Reader, error) {
+func browser(url string, browserTimeout *float64, extraWait int, client *http.Client) (io.Reader, error) {
 	pw, err := playwright.Run()
 	if err != nil {
 		return nil, fmt.Errorf("could not start playwright: %v", err)
@@ -39,6 +39,7 @@ func browser(url string, extraWait int, client *http.Client) (io.Reader, error) 
 	}
 
 	_, err = page.Goto(url, playwright.PageGotoOptions{
+		Timeout: browserTimeout,
 		WaitUntil: playwright.WaitUntilStateNetworkidle,
 	})
 	if err != nil {
