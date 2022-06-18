@@ -106,7 +106,7 @@ func getJS(client *http.Client, url string, query interface{}, r *regexp.Regexp)
 		}
 		return nil
 	}
-	
+
 	return nil
 }
 

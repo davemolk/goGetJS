@@ -39,7 +39,7 @@ func browser(url string, browserTimeout *float64, extraWait int, client *http.Cl
 	}
 
 	_, err = page.Goto(url, playwright.PageGotoOptions{
-		Timeout: browserTimeout,
+		Timeout:   browserTimeout,
 		WaitUntil: playwright.WaitUntilStateNetworkidle,
 	})
 	if err != nil {

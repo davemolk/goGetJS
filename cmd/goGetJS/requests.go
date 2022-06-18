@@ -62,7 +62,7 @@ func quickRetry(url string, query interface{}, r *regexp.Regexp) {
 
 	b, err := io.ReadAll(resp.Body)
 	script := string(b)
-	
+
 	if script != "" {
 		log.Printf("retry for %s was successful\n", url)
 		searchScript(query, url, script)
