@@ -92,7 +92,6 @@ func getJS(client *http.Client, url string, query interface{}, r *regexp.Regexp)
 
 	// retry (short timeout and allowing redirects)
 	if len(body) == 0 {
-		// maybe count the number of unsuccessful retries and subtract from src count...
 		go quickRetry(url, query, r)
 	}
 

@@ -97,7 +97,7 @@ func main() {
 		counter--
 	}
 
-	fmt.Printf("\nsuccessfully wrote %d scripts\n", counter)
+	fmt.Printf("\nsuccessfully processed %d scripts\n", counter)
 
 	fmt.Printf("\ntook: %f seconds\n", time.Since(start).Seconds())
 }
