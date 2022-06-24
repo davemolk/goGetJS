@@ -9,8 +9,11 @@ import (
 // writeScript writes a passed in string of javascript to an individual file.
 func writeScript(script, url string, fileNamer *regexp.Regexp) error {
 	fName := fileNamer.FindString(url)
+	url = "// " + url + "\n"
+	urlByte := []byte(url)
 	scriptByte := []byte(script)
-	if err := os.WriteFile("data/"+fName, scriptByte, 0644); err != nil {
+	data := append(urlByte, scriptByte...)
+	if err := os.WriteFile("data/"+fName, data, 0644); err != nil {
 		return fmt.Errorf("cannot write script %q: %v", fName, err)
 	}
 	return nil
