@@ -36,6 +36,9 @@ func makeRequest(url string, client *http.Client) (*http.Response, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unable to get response for %v: %v", url, err)
 	}
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("status code error: %d %s", resp.StatusCode, resp.Status)
+	}
 	return resp, nil
 }
 

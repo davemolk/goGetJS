@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"io"
@@ -13,36 +14,51 @@ import (
 )
 
 func main() {
+	var url string
 	var term string
 	var regex string
 	var inputFile string
-
-	url := flag.String("url", "https://go.dev", "url for getting JavaScript")
-	timeout := flag.Int("timeout", 5, "timeout for request")
-	browserTimeout := flag.Float64("browserTimeout", 10000, "browser timeout")
-	useBrowswer := flag.Bool("browser", false, "use playwright to handle JS-intensive sites (default is false")
-	extraWait := flag.Int("extraWait", 0, "additional wait (in seconds) when using a browser. default is 0 seconds")
-	flag.StringVar(&term, "term", "", "search JavaScript for a particular term")
-	flag.StringVar(&regex, "regex", "", "search JavaScript with a regex expression")
-	flag.StringVar(&inputFile, "file", "", "file containing a list of search terms")
+	flag.StringVar(&url, "u", "", "url for getting JavaScript")
+	timeout := flag.Int("t", 5, "timeout for request")
+	browserTimeout := flag.Float64("bt", 10000, "browser timeout")
+	useBrowswer := flag.Bool("b", false, "use playwright to handle JS-intensive sites (default is false")
+	extraWait := flag.Int("ew", 0, "additional wait (in seconds) when using a browser. default is 0 seconds")
+	flag.StringVar(&term, "w", "", "search JavaScript for a particular word")
+	flag.StringVar(&regex, "r", "", "search JavaScript with a regex expression")
+	flag.StringVar(&inputFile, "f", "", "file containing a list of search terms")
 
 	flag.Parse()
 
-	err := os.Mkdir("data", 0755)
-	assertErrorToNilf("could not create folder to store javascript: %v", err)
-
 	start := time.Now()
 
+	stat, err := os.Stdin.Stat()
+	assertErrorToNilf("Stdin path error: %v", err)
+
+	if url == "" {
+		if (stat.Mode() & os.ModeCharDevice) == 0 {
+			s := bufio.NewScanner(os.Stdin)
+			for s.Scan() {
+				url = s.Text()
+			}
+		}
+	}
+
+	if url == "" {
+		log.Fatal("must provide a URL")
+	}
+
+	err = os.Mkdir("data", 0755)
+	assertErrorToNilf("could not create folder to store javascript: %v", err)
 	client := makeClient(*timeout)
 
 	var reader io.Reader
 
 	// get reader
 	if *useBrowswer {
-		reader, err = browser(*url, browserTimeout, *extraWait, client)
+		reader, err = browser(url, browserTimeout, *extraWait, client)
 		assertErrorToNilf("could not make request with browser: %v", err)
 	} else {
-		resp, err := makeRequest(*url, client)
+		resp, err := makeRequest(url, client)
 		assertErrorToNilf("could not make request: %v", err)
 		reader = resp.Body
 		defer resp.Body.Close()
@@ -67,7 +83,7 @@ func main() {
 	}
 
 	// parse for src, writing javascript files without src
-	srcs, anonCount, err := parseDoc(reader, *url, query)
+	srcs, anonCount, err := parseDoc(reader, url, query)
 	assertErrorToNilf("could not parse HTML: %v", err)
 
 	// write src text file
@@ -75,7 +91,7 @@ func main() {
 	assertErrorToNilf("could not write scriptSRC.txt: %v", err)
 
 	// handling situations when src doesn't end with .js
-	fName := regexp.MustCompile(`[\w-]+(\.js)?$`)
+	fName := regexp.MustCompile(`[\w-&]+(\.js)?$`)
 
 	// extract, search, and write javascript files with src
 	var g errgroup.Group
