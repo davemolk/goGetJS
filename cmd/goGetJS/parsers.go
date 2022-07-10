@@ -19,7 +19,7 @@ import (
 // number found, and any errors. When a script tag does not have an src attribute, parseDoc
 // writes the contents between the script tags as an anonymous javascript file. If no src are
 // found on the page, parseDoc returns the html as a string to aid in debugging.
-func parseDoc(r io.Reader, myUrl string, query interface{}) ([]string, int, error) {
+func (app *application) parseDoc(r io.Reader, myUrl string, query interface{}) ([]string, int, error) {
 	srcs := []string{}
 	doc, err := goquery.NewDocumentFromReader(r)
 	if err != nil {
@@ -50,7 +50,7 @@ func parseDoc(r io.Reader, myUrl string, query interface{}) ([]string, int, erro
 			// handling scripts without src
 			script := strings.TrimSpace(s.Text())
 
-			searchScript(query, myUrl, script)
+			app.searchScript(query, myUrl, script)
 
 			// write scripts to file
 			scriptByte := []byte(script)
@@ -76,9 +76,9 @@ func parseDoc(r io.Reader, myUrl string, query interface{}) ([]string, int, erro
 }
 
 // getJS retrieves and then writes the contents a url (in this case, each src) to an individual javascript file.
-func getJS(client *http.Client, url string, query interface{}, r *regexp.Regexp) error {
+func (app *application) getJS(client *http.Client, url string, query interface{}, r *regexp.Regexp) error {
 	log.Println("extracting from:", url)
-	resp, err := makeRequest(url, client)
+	resp, err := app.makeRequest(url, client)
 	if err != nil {
 		return fmt.Errorf("could not make request at %s: %v", url, err)
 	}
@@ -92,15 +92,15 @@ func getJS(client *http.Client, url string, query interface{}, r *regexp.Regexp)
 
 	// retry (short timeout and allowing redirects)
 	if len(body) == 0 {
-		go quickRetry(url, query, r)
+		go app.quickRetry(url, query, r)
 	}
 
 	script := string(body)
 
-	searchScript(query, url, script)
+	app.searchScript(query, url, script)
 
 	if script != "" {
-		err := writeScript(script, url, r)
+		err := app.writeScript(script, url, r)
 		if err != nil {
 			return fmt.Errorf("unable to write script file: %v", err)
 		}
@@ -112,7 +112,7 @@ func getJS(client *http.Client, url string, query interface{}, r *regexp.Regexp)
 
 // searchScript takes a query (as an empty interface), a url, and the script to be searched,
 // printing any found instances to the console.
-func searchScript(query interface{}, url, script string) {
+func (app *application) searchScript(query interface{}, url, script string) {
 	switch q := query.(type) {
 	case *regexp.Regexp:
 		if q.FindAllString(script, -1) != nil {

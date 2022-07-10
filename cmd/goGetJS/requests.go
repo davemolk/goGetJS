@@ -12,7 +12,7 @@ import (
 )
 
 // makeClient takes in a flag-specified timeout and returns an *http.Client.
-func makeClient(timeout int) *http.Client {
+func (app *application) makeClient(timeout int) *http.Client {
 	return &http.Client{
 		Timeout: time.Duration(timeout) * time.Second,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
@@ -23,13 +23,13 @@ func makeClient(timeout int) *http.Client {
 
 // makeRequest takes in a url and a client, forms a new GET request, sets a random
 // user agent, and then returns the response and any errors.
-func makeRequest(url string, client *http.Client) (*http.Response, error) {
+func (app *application) makeRequest(url string, client *http.Client) (*http.Response, error) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create request for %v: %v", url, err)
 	}
 
-	uAgent := randomUA()
+	uAgent := app.randomUA()
 	req.Header.Set("User-Agent", uAgent)
 
 	resp, err := client.Do(req)
@@ -44,7 +44,7 @@ func makeRequest(url string, client *http.Client) (*http.Response, error) {
 
 // quickRetry uses a short timeout and allows redirects. It's called within getJS
 // to retry any src showing no text on the page.
-func quickRetry(url string, query interface{}, r *regexp.Regexp) {
+func (app *application) quickRetry(url string, query interface{}, r *regexp.Regexp) {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -53,7 +53,7 @@ func quickRetry(url string, query interface{}, r *regexp.Regexp) {
 		return
 	}
 
-	uAgent := randomUA()
+	uAgent := app.randomUA()
 	req.Header.Set("User-Agent", uAgent)
 
 	resp, err := http.DefaultClient.Do(req)
@@ -68,8 +68,8 @@ func quickRetry(url string, query interface{}, r *regexp.Regexp) {
 
 	if script != "" {
 		log.Printf("retry for %s was successful\n", url)
-		searchScript(query, url, script)
-		writeScript(script, url, r)
+		app.searchScript(query, url, script)
+		app.writeScript(script, url, r)
 		if err != nil {
 			log.Printf("retry for %s was unsuccessful: unable to write script file: %v", url, err)
 			return
@@ -78,8 +78,8 @@ func quickRetry(url string, query interface{}, r *regexp.Regexp) {
 }
 
 // randomUA returns a user agent randomly drawn from six possibilities.
-func randomUA() string {
-	userAgents := getUA()
+func (app *application) randomUA() string {
+	userAgents := app.getUA()
 	r := rand.New(rand.NewSource(time.Now().Unix()))
 	rando := r.Intn(len(userAgents))
 
@@ -87,7 +87,7 @@ func randomUA() string {
 }
 
 // getUA returns a string slice of six user agents.
-func getUA() []string {
+func (app *application) getUA() []string {
 	return []string{
 		"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.127 Safari/537.36",
 		"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/603.3.8 (KHTML, like Gecko)",

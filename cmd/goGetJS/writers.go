@@ -7,7 +7,7 @@ import (
 )
 
 // writeScript writes a passed in string of javascript to an individual file.
-func writeScript(script, url string, fileNamer *regexp.Regexp) error {
+func (app *application) writeScript(script, url string, fileNamer *regexp.Regexp) error {
 	fName := fileNamer.FindString(url)
 	url = "// " + url + "\n"
 	urlByte := []byte(url)
@@ -20,7 +20,7 @@ func writeScript(script, url string, fileNamer *regexp.Regexp) error {
 }
 
 // writeFile takes a string slice of src and writes the contents to a text file.
-func writeFile(scripts []string, fName string) error {
+func (app *application) writeFile(scripts []string, fName string) error {
 	f, err := os.Create(fName)
 	if err != nil {
 		return fmt.Errorf("could not create %q: %v", fName, err)

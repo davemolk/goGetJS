@@ -14,7 +14,7 @@ func assertErrorToNilf(msg string, err error) {
 }
 
 // readLines converts the contents of an input text file to a string slice.
-func readLines(r io.Reader) ([]string, error) {
+func (app *application) readLines(r io.Reader) ([]string, error) {
 	var lines []string
 	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
