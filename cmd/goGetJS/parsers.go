@@ -3,9 +3,7 @@ package main
 import (
 	"fmt"
 	"io"
-	"log"
 	"net/http"
-	"net/url"
 	"os"
 	"regexp"
 	"strconv"
@@ -19,45 +17,38 @@ import (
 // number found, and any errors. When a script tag does not have an src attribute, parseDoc
 // writes the contents between the script tags as an anonymous javascript file. If no src are
 // found on the page, parseDoc returns the html as a string to aid in debugging.
-func (app *application) parseDoc(r io.Reader, myUrl string, query interface{}) ([]string, int, error) {
-	srcs := []string{}
+func (app *application) parseDoc(r io.Reader, url string, query interface{}) ([]string, int, error) {
+	var srcs []string
 	doc, err := goquery.NewDocumentFromReader(r)
 	if err != nil {
-		return srcs, 0, fmt.Errorf("could not create goquery doc for %v: %v", myUrl, err)
+		return srcs, 0, fmt.Errorf("could not create goquery doc for %v: %v", url, err)
 	}
 
 	anonCount := 0
-
-	u, err := url.Parse(myUrl)
-	if err != nil {
-		return srcs, 0, fmt.Errorf("could not parse %v URL: %v", myUrl, err)
-	}
 
 	doc.Find("script").Each(func(i int, s *goquery.Selection) {
 		// handling scripts with src
 		if src, ok := s.Attr("src"); ok {
 			src = strings.TrimSpace(src)
-			if !strings.HasPrefix(src, "http") {
-				rel, err := u.Parse(src)
-				if err != nil {
-					log.Printf("unable to parse %v (found on %v):\n%v", src, myUrl, err)
-				}
-				srcs = append(srcs, rel.String())
-			} else {
+			switch {
+			case strings.HasPrefix(src, "/"):
+				full := app.baseURL + src
+				srcs = append(srcs, full)
+			default:
 				srcs = append(srcs, src)
 			}
 		} else {
 			// handling scripts without src
 			script := strings.TrimSpace(s.Text())
 
-			app.searchScript(query, myUrl, script)
+			app.searchScript(query, url, script)
 
 			// write scripts to file
 			scriptByte := []byte(script)
 			anonCount++
 			scriptName := fmt.Sprintf("anon%s.js", strconv.Itoa(anonCount))
 			if err := os.WriteFile("data/"+scriptName, scriptByte, 0644); err != nil {
-				log.Printf("could not write %q: %v", scriptName, err)
+				app.errorLog.Printf("could not write %q: %v", scriptName, err)
 				anonCount--
 			}
 		}
@@ -67,17 +58,17 @@ func (app *application) parseDoc(r io.Reader, myUrl string, query interface{}) (
 		return srcs, anonCount, nil
 	}
 
-	// no src found
+	// if no src found, return the page for debugging purposes
 	html, err := doc.Html()
 	if err != nil {
-		return srcs, anonCount, fmt.Errorf("unable to get HTML for %v: %v", myUrl, err)
+		return srcs, anonCount, fmt.Errorf("unable to get HTML for %v: %v", url, err)
 	}
-	return srcs, anonCount, fmt.Errorf("no src found at %v\nif your url isn't the root domain, consider adding/removing a trailing slash\n%v", myUrl, html)
+	return srcs, anonCount, fmt.Errorf("no src found at %v\nif your url isn't the root domain, consider adding/removing a trailing slash\n%v", url, html)
 }
 
-// getJS retrieves and then writes the contents a url (in this case, each src) to an individual javascript file.
+// getJS takes in a url to a javascript file, extracts the contents, and writes them to an individual javascript file.
 func (app *application) getJS(client *http.Client, url string, query interface{}, r *regexp.Regexp) error {
-	log.Println("extracting from:", url)
+	app.infoLog.Println("extracting from:", url)
 	resp, err := app.makeRequest(url, client)
 	if err != nil {
 		return fmt.Errorf("could not make request at %s: %v", url, err)
@@ -116,11 +107,11 @@ func (app *application) searchScript(query interface{}, url, script string) {
 	switch q := query.(type) {
 	case *regexp.Regexp:
 		if q.FindAllString(script, -1) != nil {
-			fmt.Printf("\n*** found %q in %s ***\n", q.FindAllString(script, -1), url)
+			app.searchLog.Printf("found %q in %s\n", q.FindAllString(script, -1), url)
 		}
 	case string:
 		if q != "" && strings.Contains(script, q) {
-			fmt.Printf("\n*** found %q in %s ***\n", q, url)
+			app.searchLog.Printf("found %q in %s\n", q, url)
 		}
 	case []string:
 		var wg sync.WaitGroup
@@ -128,13 +119,13 @@ func (app *application) searchScript(query interface{}, url, script string) {
 			wg.Add(1)
 			go func(t string) {
 				if strings.Contains(script, t) {
-					fmt.Printf("\n*** found %q in %s ***\n", t, url)
+					app.searchLog.Printf("found %q in %s\n", t, url)
 				}
 				wg.Done()
 			}(term)
 		}
 		wg.Wait()
 	default:
-		fmt.Println("malformed query, please try again")
+		app.errorLog.Println("malformed query, please try again")
 	}
 }

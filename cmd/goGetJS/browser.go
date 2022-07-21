@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -15,6 +14,8 @@ import (
 // network connections for at least 500ms (unless a longer wait is requested via the extraWait) flag.
 // browser returns an io.Reader and an error.
 func (app *application) browser(url string, browserTimeout *float64, extraWait int, client *http.Client) (io.Reader, error) {
+	fmt.Println("============================================================")
+	app.infoLog.Println("initiating playwright browser...")
 	pw, err := playwright.Run()
 	if err != nil {
 		return nil, fmt.Errorf("could not start playwright: %v", err)
@@ -48,7 +49,7 @@ func (app *application) browser(url string, browserTimeout *float64, extraWait i
 
 	if extraWait > 0 {
 		time.Sleep(time.Duration(extraWait) * time.Second)
-		log.Println("slept for", extraWait)
+		app.infoLog.Printf("slept for %d seconds\n", extraWait)
 	}
 
 	htmlDoc, err := page.Content()
@@ -65,6 +66,9 @@ func (app *application) browser(url string, browserTimeout *float64, extraWait i
 	if err != nil {
 		return nil, fmt.Errorf("could not stop playwright: %v", err)
 	}
+
+	app.infoLog.Println("browser finished successfully")
+	fmt.Println("============================================================")
 
 	return strings.NewReader(htmlDoc), nil
 }

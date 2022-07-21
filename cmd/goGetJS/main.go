@@ -26,8 +26,12 @@ type config struct {
 }
 
 type application struct {
-	client *http.Client
-	config config
+	baseURL string
+	client   *http.Client
+	config   config
+	errorLog *log.Logger
+	infoLog  *log.Logger
+	searchLog *log.Logger
 }
 
 func main() {
@@ -46,8 +50,19 @@ func main() {
 
 	start := time.Now()
 
+	infoLog := log.New(os.Stdout, "INFO\t", log.Ltime)
+	errorLog := log.New(os.Stderr, "ERROR\t", log.Ltime|log.Lshortfile)
+	searchLog := log.New(os.Stdout, "FOUND\t", log.Ltime)
+
+	app := &application{
+		config:   cfg,
+		errorLog: errorLog,
+		infoLog:  infoLog,
+		searchLog: searchLog,
+	}
+
 	stat, err := os.Stdin.Stat()
-	assertErrorToNilf("Stdin path error: %v", err)
+	app.assertErrorToNilf("Stdin path error: %v", err)
 
 	if cfg.url == "" {
 		if (stat.Mode() & os.ModeCharDevice) == 0 {
@@ -59,15 +74,17 @@ func main() {
 	}
 
 	if cfg.url == "" {
-		log.Fatal("must provide a URL")
+		app.errorLog.Fatal("must provide a URL")
 	}
+
+	// maybe use a list to filter out .dev, .org, etc from this?
+	baseURL, err := app.getBaseURL(cfg.url)
+	app.assertErrorToNilf("unable to parse base URL", err)
+
+	app.baseURL = baseURL
 
 	err = os.Mkdir("data", 0755)
-	assertErrorToNilf("could not create folder to store javascript: %v", err)
-
-	app := &application{
-		config: cfg,
-	}
+	app.assertErrorToNilf("could not create folder to store javascript: %v", err)
 
 	app.client = app.makeClient(cfg.timeout)
 
@@ -76,39 +93,40 @@ func main() {
 	// get reader
 	if cfg.useBrowser {
 		reader, err = app.browser(cfg.url, &cfg.browserTimeout, cfg.extraWait, app.client)
-		assertErrorToNilf("could not make request with browser: %v", err)
+		app.assertErrorToNilf("could not make request with browser: %v", err)
 	} else {
 		resp, err := app.makeRequest(cfg.url, app.client)
-		assertErrorToNilf("could not make request: %v", err)
-		reader = resp.Body
+		app.assertErrorToNilf("could not make request: %v", err)
 		defer resp.Body.Close()
+		reader = resp.Body
 	}
 
 	// configure query
 	var query interface{}
 
-	if len(cfg.regex) > 0 {
+	switch {
+	case len(cfg.regex) > 0:
 		re := regexp.MustCompile(cfg.regex)
 		query = re
-	} else if len(cfg.inputFile) > 0 {
+	case len(cfg.inputFile) > 0:
 		f, err := os.Open(cfg.inputFile)
-		assertErrorToNilf("could not open input file: %v", err)
+		app.assertErrorToNilf("could not open input file: %v", err)
 		defer f.Close()
 
 		lines, err := app.readLines(f)
-		assertErrorToNilf("could not read input file: %v", err)
+		app.assertErrorToNilf("could not read input file: %v", err)
 		query = lines
-	} else {
+	default:
 		query = cfg.term
 	}
 
 	// parse for src, writing javascript files without src
 	srcs, anonCount, err := app.parseDoc(reader, cfg.url, query)
-	assertErrorToNilf("could not parse HTML: %v", err)
+	app.assertErrorToNilf("could not parse HTML: %v", err)
 
 	// write src text file
 	err = app.writeFile(srcs, "scriptSRC.txt")
-	assertErrorToNilf("could not write scriptSRC.txt: %v", err)
+	app.assertErrorToNilf("could not write scriptSRC.txt: %v", err)
 
 	// handling situations when src doesn't end with .js
 	fName := regexp.MustCompile(`[\w-&]+(\.js)?$`)
@@ -129,11 +147,13 @@ func main() {
 	counter := anonCount + len(srcs)
 
 	if err := g.Wait(); err != nil {
-		log.Printf("error with extract/search/write: %v", err)
+		app.errorLog.Printf("error with extract/search/write: %v", err)
 		counter--
 	}
 
-	fmt.Printf("\nsuccessfully processed %d scripts\n", counter)
-
-	fmt.Printf("\ntook: %f seconds\n", time.Since(start).Seconds())
+	fmt.Println()
+	fmt.Println("============================================================")
+	app.infoLog.Printf("successfully processed %d scripts\n", counter)
+	app.infoLog.Printf("took: %f seconds\n", time.Since(start).Seconds())
+	fmt.Println("============================================================")
 }

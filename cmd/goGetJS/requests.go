@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"math/rand"
 	"net/http"
 	"regexp"
@@ -37,6 +36,7 @@ func (app *application) makeRequest(url string, client *http.Client) (*http.Resp
 		return nil, fmt.Errorf("unable to get response for %v: %v", url, err)
 	}
 	if resp.StatusCode != 200 {
+		resp.Body.Close()
 		return nil, fmt.Errorf("status code error: %d %s", resp.StatusCode, resp.Status)
 	}
 	return resp, nil
@@ -49,7 +49,7 @@ func (app *application) quickRetry(url string, query interface{}, r *regexp.Rege
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		log.Printf("unable to create request for retry of %s: %v", url, err)
+		app.errorLog.Printf("unable to create request for retry of %s: %v\n", url, err)
 		return
 	}
 
@@ -58,20 +58,30 @@ func (app *application) quickRetry(url string, query interface{}, r *regexp.Rege
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		log.Printf("unable to get response for retry of %s: %v", url, err)
+		app.errorLog.Printf("unable to get response for retry of %s: %v\n", url, err)
+		return
+	}
+	if resp.StatusCode != 200 {
+		resp.Body.Close()
+		app.errorLog.Printf("status code error: %d\n", resp.StatusCode)
 		return
 	}
 	defer resp.Body.Close()
 
 	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		resp.Body.Close() // necessary?
+		app.errorLog.Printf("unable to read response body: %v\n", err)
+		return
+	}
 	script := string(b)
 
 	if script != "" {
-		log.Printf("retry for %s was successful\n", url)
+		app.infoLog.Printf("retry for %s was successful\n", url)
 		app.searchScript(query, url, script)
-		app.writeScript(script, url, r)
+		err := app.writeScript(script, url, r)
 		if err != nil {
-			log.Printf("retry for %s was unsuccessful: unable to write script file: %v", url, err)
+			app.errorLog.Printf("retry for %s was unsuccessful: unable to write script file: %v\n", url, err)
 			return
 		}
 	}

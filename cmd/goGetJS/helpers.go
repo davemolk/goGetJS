@@ -2,14 +2,15 @@ package main
 
 import (
 	"bufio"
+	"fmt"
 	"io"
-	"log"
+	"net/url"
 )
 
 // assertErrorToNilf is a simple helper function for error handling.
-func assertErrorToNilf(msg string, err error) {
+func (app *application) assertErrorToNilf(msg string, err error) {
 	if err != nil {
-		log.Fatalf(msg, err)
+		app.errorLog.Fatalf(msg, err)
 	}
 }
 
@@ -21,4 +22,16 @@ func (app *application) readLines(r io.Reader) ([]string, error) {
 		lines = append(lines, scanner.Text())
 	}
 	return lines, scanner.Err()
+}
+
+// getBaseURL takes in the url from the user and returns the base url (just in case...)
+func (app *application) getBaseURL(myUrl string) (string, error) {
+	u, err := url.Parse(myUrl)
+	if err != nil {
+		return "", fmt.Errorf("unable to parse input url %s: %v", myUrl, err)
+	}
+	u.Path = ""
+	u.RawQuery = ""
+	u.Fragment = ""
+	return u.String(), nil
 }
