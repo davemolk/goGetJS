@@ -58,12 +58,15 @@ func (app *application) parseDoc(r io.Reader, url string, query interface{}) ([]
 		return srcs, anonCount, nil
 	}
 
-	// if no src found, return the page for debugging purposes
+	// if no src found, write the page to a file for debugging purposes
 	html, err := doc.Html()
 	if err != nil {
 		return srcs, anonCount, fmt.Errorf("unable to get HTML for %v: %v", url, err)
 	}
-	return srcs, anonCount, fmt.Errorf("no src found at %v\nif your url isn't the root domain, consider adding/removing a trailing slash\n%v", url, html)
+	err = app.writePage(html, url)
+	app.errorLog.Printf("unable to write HTML for %v: %v", url, err)
+	
+	return srcs, anonCount, fmt.Errorf("no src found at %v: %v", url, err)
 }
 
 // getJS takes in a url to a javascript file, extracts the contents, and writes them to an individual javascript file.
