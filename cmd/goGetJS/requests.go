@@ -90,7 +90,7 @@ func (app *application) quickRetry(url string, query interface{}, r *regexp.Rege
 // randomUA returns a user agent randomly drawn from six possibilities.
 func (app *application) randomUA() string {
 	userAgents := app.getUA()
-	r := rand.New(rand.NewSource(time.Now().Unix()))
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	rando := r.Intn(len(userAgents))
 
 	return userAgents[rando]
