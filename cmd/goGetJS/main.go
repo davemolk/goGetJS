@@ -17,34 +17,35 @@ import (
 type config struct {
 	browserTimeout float64
 	extraWait      int
-	inputFile      string
 	regex          string
 	term           string
+	terms string
 	timeout        int
 	url            string
 	useBrowser     bool
 }
 
 type application struct {
-	baseURL string
-	client   *http.Client
-	config   config
-	errorLog *log.Logger
-	infoLog  *log.Logger
-	searchLog *log.Logger
+	baseURL   string
+	client    *http.Client
+	config    config
+	errorLog  *log.Logger
+	infoLog   *log.Logger
+	query     interface{}
+	searches  *SearchMap
 }
 
 func main() {
 	var cfg config
 
-	flag.StringVar(&cfg.url, "u", "", "url for getting JavaScript")
-	flag.IntVar(&cfg.timeout, "t", 5, "timeout for request")
 	flag.Float64Var(&cfg.browserTimeout, "bt", 10000, "browser timeout")
-	flag.BoolVar(&cfg.useBrowser, "b", false, "use playwright to handle JS-intensive sites (default is false")
 	flag.IntVar(&cfg.extraWait, "ew", 0, "additional wait (in seconds) when using a browser. default is 0 seconds")
-	flag.StringVar(&cfg.term, "w", "", "search JavaScript for a particular word")
-	flag.StringVar(&cfg.regex, "r", "", "search JavaScript with a regex expression")
-	flag.StringVar(&cfg.inputFile, "f", "", "file containing a list of search terms")
+	flag.StringVar(&cfg.regex, "regex", "", "search JavaScript with a regex expression")
+	flag.StringVar(&cfg.term, "term", "", "search JavaScript for a particular word")
+	flag.StringVar(&cfg.terms, "terms", "", "file containing a list of search terms")
+	flag.IntVar(&cfg.timeout, "t", 5, "timeout for request")
+	flag.StringVar(&cfg.url, "u", "", "url for getting JavaScript")
+	flag.BoolVar(&cfg.useBrowser, "b", false, "use playwright to handle JS-intensive sites (default is false")
 
 	flag.Parse()
 
@@ -52,15 +53,18 @@ func main() {
 
 	infoLog := log.New(os.Stdout, "INFO\t", log.Ltime)
 	errorLog := log.New(os.Stderr, "ERROR\t", log.Ltime|log.Lshortfile)
-	searchLog := log.New(os.Stdout, "FOUND\t", log.Ltime)
+	searches := NewSearchMap()
 
 	app := &application{
-		config:   cfg,
-		errorLog: errorLog,
-		infoLog:  infoLog,
-		searchLog: searchLog,
+		config:    cfg,
+		errorLog:  errorLog,
+		infoLog:   infoLog,
+		searches:  searches,
 	}
 
+	app.getQuery()
+
+	// get input from user (if applicable)
 	stat, err := os.Stdin.Stat()
 	app.assertErrorToNilf("Stdin path error: %v", err)
 
@@ -101,27 +105,8 @@ func main() {
 		reader = resp.Body
 	}
 
-	// configure query
-	var query interface{}
-
-	switch {
-	case len(cfg.regex) > 0:
-		re := regexp.MustCompile(cfg.regex)
-		query = re
-	case len(cfg.inputFile) > 0:
-		f, err := os.Open(cfg.inputFile)
-		app.assertErrorToNilf("could not open input file: %v", err)
-		defer f.Close()
-
-		lines, err := app.readLines(f)
-		app.assertErrorToNilf("could not read input file: %v", err)
-		query = lines
-	default:
-		query = cfg.term
-	}
-
 	// parse for src, writing javascript files without src
-	srcs, anonCount, err := app.parseDoc(reader, cfg.url, query)
+	srcs, anonCount, err := app.parseDoc(reader, cfg.url, app.query)
 	app.assertErrorToNilf("could not parse HTML: %v", err)
 
 	// write src text file
@@ -136,7 +121,7 @@ func main() {
 	for _, src := range srcs {
 		src := src
 		g.Go(func() error {
-			err := app.getJS(app.client, src, query, fName)
+			err := app.getJS(app.client, src, app.query, fName)
 			if err != nil {
 				return fmt.Errorf("error while processing %v: %v", src, err)
 			}
@@ -151,9 +136,18 @@ func main() {
 		counter--
 	}
 
+	// save search results
+	if cfg.term != "" || cfg.terms != "" || cfg.regex != "" {
+		err := os.Mkdir("searchResults", 0755)
+		app.assertErrorToNilf("could not create folder to store search results: %v", err)
+		err = app.writeSearchResults()
+		app.assertErrorToNilf("unable to write search results: %v", err)
+	}
+
 	fmt.Println()
 	fmt.Println("============================================================")
 	app.infoLog.Printf("successfully processed %d scripts\n", counter)
 	app.infoLog.Printf("took: %f seconds\n", time.Since(start).Seconds())
 	fmt.Println("============================================================")
+
 }

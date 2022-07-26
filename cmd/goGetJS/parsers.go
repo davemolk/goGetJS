@@ -16,7 +16,7 @@ import (
 // parseDoc searches a page for script tags, returning a string slice of all found src, the
 // number found, and any errors. When a script tag does not have an src attribute, parseDoc
 // writes the contents between the script tags as an anonymous javascript file. If no src are
-// found on the page, parseDoc returns the html as a string to aid in debugging.
+// found on the page, parseDoc writes the html to a file to aid in debugging.
 func (app *application) parseDoc(r io.Reader, url string, query interface{}) ([]string, int, error) {
 	var srcs []string
 	doc, err := goquery.NewDocumentFromReader(r)
@@ -65,7 +65,7 @@ func (app *application) parseDoc(r io.Reader, url string, query interface{}) ([]
 	}
 	err = app.writePage(html, url)
 	app.errorLog.Printf("unable to write HTML for %v: %v", url, err)
-	
+
 	return srcs, anonCount, fmt.Errorf("no src found at %v: %v", url, err)
 }
 
@@ -84,7 +84,7 @@ func (app *application) getJS(client *http.Client, url string, query interface{}
 		return fmt.Errorf("could not read response body for %s: %v", url, err)
 	}
 
-	// retry (short timeout and allowing redirects)
+	// retry (uses short timeout and allows redirects)
 	if len(body) == 0 {
 		go app.quickRetry(url, query, r)
 	}
@@ -104,17 +104,25 @@ func (app *application) getJS(client *http.Client, url string, query interface{}
 	return nil
 }
 
-// searchScript takes a query (as an empty interface), a url, and the script to be searched,
-// printing any found instances to the console.
+// searchScript takes a query, a url, and the script to be searched, and saves
+// any found terms (and the url they were found on) to the SearchMap for 
+// later writing to a file
 func (app *application) searchScript(query interface{}, url, script string) {
 	switch q := query.(type) {
 	case *regexp.Regexp:
+		savedTerm := make(map[string]bool)
 		if q.FindAllString(script, -1) != nil {
-			app.searchLog.Printf("found %q in %s\n", q.FindAllString(script, -1), url)
+			for _, v := range q.FindAllString(script, -1) {
+				if savedTerm[v] {
+					continue
+				}
+				savedTerm[v] = true
+				app.searches.Store(url, v)
+			}
 		}
 	case string:
 		if q != "" && strings.Contains(script, q) {
-			app.searchLog.Printf("found %q in %s\n", q, url)
+			app.searches.Store(url, q)
 		}
 	case []string:
 		var wg sync.WaitGroup
@@ -122,7 +130,7 @@ func (app *application) searchScript(query interface{}, url, script string) {
 			wg.Add(1)
 			go func(t string) {
 				if strings.Contains(script, t) {
-					app.searchLog.Printf("found %q in %s\n", t, url)
+					app.searches.Store(url, t)
 				}
 				wg.Done()
 			}(term)

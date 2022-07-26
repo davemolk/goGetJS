@@ -11,7 +11,7 @@ import (
 )
 
 // browser uses a headless browser (playwright) to scrape a site, waiting until there are no
-// network connections for at least 500ms (unless a longer wait is requested via the extraWait) flag.
+// network connections for at least 500ms (unless a longer wait is requested with the extraWait) flag.
 // browser returns an io.Reader and an error.
 func (app *application) browser(url string, browserTimeout *float64, extraWait int, client *http.Client) (io.Reader, error) {
 	fmt.Println("============================================================")
@@ -67,7 +67,7 @@ func (app *application) browser(url string, browserTimeout *float64, extraWait i
 		return nil, fmt.Errorf("could not stop playwright: %v", err)
 	}
 
-	app.infoLog.Println("browser finished successfully")
+	app.infoLog.Println("browser finished")
 	fmt.Println("============================================================")
 
 	return strings.NewReader(htmlDoc), nil

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"os"
@@ -36,7 +37,7 @@ func (app *application) writeFile(scripts []string, fName string) error {
 	return nil
 }
 
-// writePage takes the html of a page (as a string) and the url and writes 
+// writePage takes the html of a page (as a string) and the url and writes
 // the contents to a text file.
 func (app *application) writePage(s, myURL string) error {
 	var n string // for naming purposes
@@ -48,7 +49,7 @@ func (app *application) writePage(s, myURL string) error {
 	case u.Path != "":
 		re := regexp.MustCompile(`[-\w\?\=]+/?$`)
 		n = re.FindString(u.Path)
-		n =	strings.TrimSuffix(n, "/")
+		n = strings.TrimSuffix(n, "/")
 	default:
 		n = u.Host
 	}
@@ -62,5 +63,37 @@ func (app *application) writePage(s, myURL string) error {
 		return fmt.Errorf("unable to write file for %q: %v", s, err)
 	}
 	f.Sync()
+	return nil
+}
+
+func (app *application) writeSearchResults() error {
+	var n string
+
+	switch app.query.(type) {
+	case *regexp.Regexp:
+		n = "regexResults.json"
+	case string:
+		n = "termResults.json"
+	case []string:
+		n = "termsResults.json"
+	}
+
+	sr, err := json.Marshal(app.searches.Searches)
+	if err != nil {
+		return fmt.Errorf("unable to marshal search results: %v", err)
+	}
+	f, err := os.Create(fmt.Sprintf("searchResults/%v", n))
+	if err != nil {
+		return fmt.Errorf("unable to create file for search results: %v", err)
+	}
+	defer f.Close()
+	_, err = f.Write(sr)
+	if err != nil {
+		return fmt.Errorf("unable to write search results to file: %v", err)
+	}
+	err = f.Sync()
+	if err != nil {
+		return fmt.Errorf("unable to perform sync for search results: %v", err)
+	}
 	return nil
 }
