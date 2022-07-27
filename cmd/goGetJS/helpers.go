@@ -30,7 +30,28 @@ func (app *application) readInputFile(n string) ([]string, error) {
 	return lines, scanner.Err()
 }
 
-// getBaseURL takes in the url from the user and returns the base url.
+// getInput checks if the user has supplied a url via stdin.
+// If no url is found, goGetJS will exit (getInput is only called 
+// in the event that no url has been supplied via flag.)
+func (app *application) getInput() error {
+	stat, err := os.Stdin.Stat()
+	if err != nil {
+		return fmt.Errorf("stdin path error: %v", err)
+	}
+
+	if (stat.Mode() & os.ModeCharDevice) == 0 {
+		s := bufio.NewScanner(os.Stdin)
+		for s.Scan() {
+			app.config.url = s.Text()
+		}
+	}
+	if app.config.url == "" {
+		app.errorLog.Fatalf("must provide a url")
+	}
+	return nil
+}
+
+// getBaseURL takes the url from the user and returns the base url.
 func (app *application) getBaseURL(myUrl string) (string, error) {
 	u, err := url.Parse(myUrl)
 	if err != nil {
@@ -43,7 +64,7 @@ func (app *application) getBaseURL(myUrl string) (string, error) {
 }
 
 // getQuery checks whether or not the user has used a term flag, a
-// regex flag, or a terms flag. If any of these has been submitted, 
+// regex flag, or a terms flag. If any of these has been submitted,
 // the respective input is stored in the query field of the site struct.
 func (app *application) getQuery() {
 	if len(app.config.regex) > 0 {

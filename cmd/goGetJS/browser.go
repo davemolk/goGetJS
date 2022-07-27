@@ -16,6 +16,7 @@ import (
 func (app *application) browser(url string, browserTimeout *float64, extraWait int, client *http.Client) (io.Reader, error) {
 	fmt.Println("============================================================")
 	app.infoLog.Println("initiating playwright browser...")
+
 	pw, err := playwright.Run()
 	if err != nil {
 		return nil, fmt.Errorf("could not start playwright: %v", err)

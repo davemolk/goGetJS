@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"flag"
 	"fmt"
 	"io"
@@ -19,72 +18,58 @@ type config struct {
 	extraWait      int
 	regex          string
 	term           string
-	terms string
+	terms          string
 	timeout        int
 	url            string
 	useBrowser     bool
 }
 
 type application struct {
-	baseURL   string
-	client    *http.Client
-	config    config
-	errorLog  *log.Logger
-	infoLog   *log.Logger
-	query     interface{}
-	searches  *SearchMap
+	baseURL  string
+	client   *http.Client
+	config   config
+	errorLog *log.Logger
+	infoLog  *log.Logger
+	query    interface{}
+	searches *SearchMap
 }
 
 func main() {
 	var cfg config
 
 	flag.Float64Var(&cfg.browserTimeout, "bt", 10000, "browser timeout")
-	flag.IntVar(&cfg.extraWait, "ew", 0, "additional wait (in seconds) when using a browser. default is 0 seconds")
+	flag.IntVar(&cfg.extraWait, "ew", 0, "additional wait (in seconds) when using a browser. default 0 seconds")
 	flag.StringVar(&cfg.regex, "regex", "", "search JavaScript with a regex expression")
-	flag.StringVar(&cfg.term, "term", "", "search JavaScript for a particular word")
-	flag.StringVar(&cfg.terms, "terms", "", "file containing a list of search terms")
-	flag.IntVar(&cfg.timeout, "t", 5, "timeout for request")
+	flag.StringVar(&cfg.term, "term", "", "search JavaScript for a particular term")
+	flag.StringVar(&cfg.terms, "terms", "", "upload a file containing a list of search terms")
+	flag.IntVar(&cfg.timeout, "t", 5, "timeout (in seconds) for request. default 5 seconds)")
 	flag.StringVar(&cfg.url, "u", "", "url for getting JavaScript")
-	flag.BoolVar(&cfg.useBrowser, "b", false, "use playwright to handle JS-intensive sites (default is false")
+	flag.BoolVar(&cfg.useBrowser, "b", false, "use playwright to handle JS-intensive sites. default false")
 
 	flag.Parse()
 
 	start := time.Now()
 
-	infoLog := log.New(os.Stdout, "INFO\t", log.Ltime)
 	errorLog := log.New(os.Stderr, "ERROR\t", log.Ltime|log.Lshortfile)
+	infoLog := log.New(os.Stdout, "INFO\t", log.Ltime)
 	searches := NewSearchMap()
 
 	app := &application{
-		config:    cfg,
-		errorLog:  errorLog,
-		infoLog:   infoLog,
-		searches:  searches,
+		config:   cfg,
+		errorLog: errorLog,
+		infoLog:  infoLog,
+		searches: searches,
 	}
 
 	app.getQuery()
 
-	// get input from user (if applicable)
-	stat, err := os.Stdin.Stat()
-	app.assertErrorToNilf("Stdin path error: %v", err)
-
-	if cfg.url == "" {
-		if (stat.Mode() & os.ModeCharDevice) == 0 {
-			s := bufio.NewScanner(os.Stdin)
-			for s.Scan() {
-				cfg.url = s.Text()
-			}
-		}
+	if app.config.url == "" {
+		err := app.getInput()
+		app.assertErrorToNilf("unable to get url from user: %v", err)
 	}
 
-	if cfg.url == "" {
-		app.errorLog.Fatal("must provide a URL")
-	}
-
-	// maybe use a list to filter out .dev, .org, etc from this?
 	baseURL, err := app.getBaseURL(cfg.url)
-	app.assertErrorToNilf("unable to parse base URL", err)
-
+	app.assertErrorToNilf("unable to parse base URL: %v", err)
 	app.baseURL = baseURL
 
 	err = os.Mkdir("data", 0755)
@@ -95,10 +80,11 @@ func main() {
 	var reader io.Reader
 
 	// get reader
-	if cfg.useBrowser {
+	switch {
+	case cfg.useBrowser:
 		reader, err = app.browser(cfg.url, &cfg.browserTimeout, cfg.extraWait, app.client)
 		app.assertErrorToNilf("could not make request with browser: %v", err)
-	} else {
+	default:
 		resp, err := app.makeRequest(cfg.url, app.client)
 		app.assertErrorToNilf("could not make request: %v", err)
 		defer resp.Body.Close()
@@ -136,7 +122,7 @@ func main() {
 		counter--
 	}
 
-	// save search results
+	// save search results (if applicable)
 	if cfg.term != "" || cfg.terms != "" || cfg.regex != "" {
 		err := os.Mkdir("searchResults", 0755)
 		app.assertErrorToNilf("could not create folder to store search results: %v", err)
@@ -149,5 +135,4 @@ func main() {
 	app.infoLog.Printf("successfully processed %d scripts\n", counter)
 	app.infoLog.Printf("took: %f seconds\n", time.Since(start).Seconds())
 	fmt.Println("============================================================")
-
 }

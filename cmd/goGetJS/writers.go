@@ -41,10 +41,13 @@ func (app *application) writeFile(scripts []string, fName string) error {
 // the contents to a text file.
 func (app *application) writePage(s, myURL string) error {
 	var n string // for naming purposes
+
+	myURL = strings.TrimSuffix(myURL, "/")
 	u, err := url.Parse(myURL)
 	if err != nil {
 		return fmt.Errorf("could not parse %q: %v", myURL, err)
 	}
+
 	switch {
 	case u.Path != "":
 		re := regexp.MustCompile(`[-\w\?\=]+/?$`)
@@ -52,17 +55,26 @@ func (app *application) writePage(s, myURL string) error {
 		n = strings.TrimSuffix(n, "/")
 	default:
 		n = u.Host
+		n = strings.ReplaceAll(n, ".", "")
 	}
-	f, err := os.Create("pages/" + n + ".html")
+
+	err = os.Mkdir("debug", 0755)
 	if err != nil {
-		return fmt.Errorf("unable to create file for %q: %v", s, err)
+		return fmt.Errorf("could not create folder to store html for debugging: %v", err)
+	}
+	f, err := os.Create("debug/" + n + ".html")
+	if err != nil {
+		return fmt.Errorf("unable to create file for %q: %v", myURL, err)
 	}
 	defer f.Close()
 	_, err = f.WriteString(s)
 	if err != nil {
-		return fmt.Errorf("unable to write file for %q: %v", s, err)
+		return fmt.Errorf("unable to write file for %q: %v", myURL, err)
 	}
-	f.Sync()
+	err = f.Sync()
+	if err != nil {
+		return fmt.Errorf("unable to perform sync for %q: %v", myURL, err)
+	}
 	return nil
 }
 

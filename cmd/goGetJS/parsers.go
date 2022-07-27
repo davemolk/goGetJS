@@ -31,6 +31,9 @@ func (app *application) parseDoc(r io.Reader, url string, query interface{}) ([]
 		if src, ok := s.Attr("src"); ok {
 			src = strings.TrimSpace(src)
 			switch {
+			case strings.HasPrefix(src, "//"):
+				full := fmt.Sprintf("http:%s", src)
+				srcs = append(srcs, full)
 			case strings.HasPrefix(src, "/"):
 				full := app.baseURL + src
 				srcs = append(srcs, full)
@@ -41,12 +44,11 @@ func (app *application) parseDoc(r io.Reader, url string, query interface{}) ([]
 			// handling scripts without src
 			script := strings.TrimSpace(s.Text())
 
-			app.searchScript(query, url, script)
-
 			// write scripts to file
 			scriptByte := []byte(script)
 			anonCount++
 			scriptName := fmt.Sprintf("anon%s.js", strconv.Itoa(anonCount))
+			app.searchScript(query, scriptName, script)
 			if err := os.WriteFile("data/"+scriptName, scriptByte, 0644); err != nil {
 				app.errorLog.Printf("could not write %q: %v", scriptName, err)
 				anonCount--
@@ -64,7 +66,9 @@ func (app *application) parseDoc(r io.Reader, url string, query interface{}) ([]
 		return srcs, anonCount, fmt.Errorf("unable to get HTML for %v: %v", url, err)
 	}
 	err = app.writePage(html, url)
-	app.errorLog.Printf("unable to write HTML for %v: %v", url, err)
+	if err != nil {
+		return srcs, anonCount, fmt.Errorf("unable to write HTML for %v: %v", url, err)
+	}
 
 	return srcs, anonCount, fmt.Errorf("no src found at %v: %v", url, err)
 }
@@ -105,7 +109,7 @@ func (app *application) getJS(client *http.Client, url string, query interface{}
 }
 
 // searchScript takes a query, a url, and the script to be searched, and saves
-// any found terms (and the url they were found on) to the SearchMap for 
+// any found terms (and the url they were found on) to the SearchMap for
 // later writing to a file
 func (app *application) searchScript(query interface{}, url, script string) {
 	switch q := query.(type) {

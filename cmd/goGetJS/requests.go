@@ -43,7 +43,7 @@ func (app *application) makeRequest(url string, client *http.Client) (*http.Resp
 }
 
 // quickRetry uses a short timeout and allows redirects. It's called within getJS
-// to retry any src showing no text on the page.
+// to retry any src that link to a page without text.
 func (app *application) quickRetry(url string, query interface{}, r *regexp.Regexp) {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()

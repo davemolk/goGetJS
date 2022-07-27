@@ -2,6 +2,7 @@ scriptSRC.txt
 todo.md
 data/
 searchResults/
+debug/
 demo.gif
 # Binaries for programs and plugins
 *.exe
