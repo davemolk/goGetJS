@@ -10,7 +10,7 @@ import (
 	"github.com/playwright-community/playwright-go"
 )
 
-// browser uses a headless browser (playwright) to scrape a site, waiting until there are no
+// browser uses a headless browser (chromium via playwright) to scrape a site, waiting until there are no
 // network connections for at least 500ms (unless a longer wait is requested with the extraWait) flag.
 // browser returns an io.Reader and an error.
 func (app *application) browser(url string, browserTimeout *float64, extraWait int, client *http.Client) (io.Reader, error) {
@@ -19,12 +19,12 @@ func (app *application) browser(url string, browserTimeout *float64, extraWait i
 
 	pw, err := playwright.Run()
 	if err != nil {
-		return nil, fmt.Errorf("could not start playwright: %v", err)
+		return nil, fmt.Errorf("could not start playwright: %w", err)
 	}
 
 	browser, err := pw.Chromium.Launch()
 	if err != nil {
-		return nil, fmt.Errorf("could not launch browswer: %v", err)
+		return nil, fmt.Errorf("could not launch browswer: %w", err)
 	}
 
 	uAgent := app.randomUA()
@@ -32,12 +32,12 @@ func (app *application) browser(url string, browserTimeout *float64, extraWait i
 		UserAgent: playwright.String(uAgent),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("could not create browser context: %v", err)
+		return nil, fmt.Errorf("could not create browser context: %w", err)
 	}
 
 	page, err := context.NewPage()
 	if err != nil {
-		return nil, fmt.Errorf("could not create browser page: %v", err)
+		return nil, fmt.Errorf("could not create browser page: %w", err)
 	}
 
 	_, err = page.Goto(url, playwright.PageGotoOptions{
@@ -45,7 +45,7 @@ func (app *application) browser(url string, browserTimeout *float64, extraWait i
 		WaitUntil: playwright.WaitUntilStateNetworkidle,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("could not go to %v: %v", url, err)
+		return nil, fmt.Errorf("could not go to %v: %w", url, err)
 	}
 
 	if extraWait > 0 {
@@ -55,17 +55,17 @@ func (app *application) browser(url string, browserTimeout *float64, extraWait i
 
 	htmlDoc, err := page.Content()
 	if err != nil {
-		return nil, fmt.Errorf("could not get html from playwright: %v", err)
+		return nil, fmt.Errorf("could not get html from playwright: %w", err)
 	}
 
 	err = browser.Close()
 	if err != nil {
-		return nil, fmt.Errorf("could not close browser: %v", err)
+		return nil, fmt.Errorf("could not close browser: %w", err)
 	}
 
 	err = pw.Stop()
 	if err != nil {
-		return nil, fmt.Errorf("could not stop playwright: %v", err)
+		return nil, fmt.Errorf("could not stop playwright: %w", err)
 	}
 
 	app.infoLog.Println("browser finished")

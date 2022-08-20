@@ -20,7 +20,7 @@ func (app *application) readInputFile(n string) ([]string, error) {
 	var lines []string
 	f, err := os.Open(n)
 	if err != nil {
-		return lines, fmt.Errorf("could not open input file: %v", err)
+		return lines, fmt.Errorf("could not open input file: %w", err)
 	}
 	defer f.Close()
 	scanner := bufio.NewScanner(f)
@@ -36,7 +36,7 @@ func (app *application) readInputFile(n string) ([]string, error) {
 func (app *application) getInput() error {
 	stat, err := os.Stdin.Stat()
 	if err != nil {
-		return fmt.Errorf("stdin path error: %v", err)
+		return fmt.Errorf("stdin path error: %w", err)
 	}
 
 	if (stat.Mode() & os.ModeCharDevice) == 0 {
@@ -55,7 +55,7 @@ func (app *application) getInput() error {
 func (app *application) getBaseURL(myUrl string) (string, error) {
 	u, err := url.Parse(myUrl)
 	if err != nil {
-		return "", fmt.Errorf("unable to parse input url %s: %v", myUrl, err)
+		return "", fmt.Errorf("unable to parse input url %s: %w", myUrl, err)
 	}
 	u.Path = ""
 	u.RawQuery = ""
@@ -72,7 +72,7 @@ func (app *application) getQuery() {
 		app.query = re
 	} else if len(app.config.terms) > 0 {
 		query, err := app.readInputFile(app.config.terms)
-		app.assertErrorToNilf("unable to get input for query %v", err)
+		app.assertErrorToNilf("unable to get input for query %w", err)
 		app.query = query
 	} else {
 		app.query = app.config.term

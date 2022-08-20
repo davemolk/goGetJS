@@ -65,15 +65,15 @@ func main() {
 
 	if app.config.url == "" {
 		err := app.getInput()
-		app.assertErrorToNilf("unable to get url from user: %v", err)
+		app.assertErrorToNilf("unable to get url from user: %w", err)
 	}
 
 	baseURL, err := app.getBaseURL(cfg.url)
-	app.assertErrorToNilf("unable to parse base URL: %v", err)
+	app.assertErrorToNilf("unable to parse base URL: %w", err)
 	app.baseURL = baseURL
 
 	err = os.Mkdir("data", 0755)
-	app.assertErrorToNilf("could not create folder to store javascript: %v", err)
+	app.assertErrorToNilf("could not create folder to store javascript: %w", err)
 
 	app.client = app.makeClient(cfg.timeout)
 
@@ -83,21 +83,21 @@ func main() {
 	switch {
 	case cfg.useBrowser:
 		reader, err = app.browser(cfg.url, &cfg.browserTimeout, cfg.extraWait, app.client)
-		app.assertErrorToNilf("could not make request with browser: %v", err)
+		app.assertErrorToNilf("could not make request with browser: %w", err)
 	default:
 		resp, err := app.makeRequest(cfg.url, app.client)
-		app.assertErrorToNilf("could not make request: %v", err)
+		app.assertErrorToNilf("could not make request: %w", err)
 		defer resp.Body.Close()
 		reader = resp.Body
 	}
 
 	// parse for src, writing javascript files without src
 	srcs, anonCount, err := app.parseDoc(reader, cfg.url, app.query)
-	app.assertErrorToNilf("could not parse HTML: %v", err)
+	app.assertErrorToNilf("could not parse HTML: %w", err)
 
 	// write src text file
 	err = app.writeFile(srcs, "scriptSRC.txt")
-	app.assertErrorToNilf("could not write scriptSRC.txt: %v", err)
+	app.assertErrorToNilf("could not write scriptSRC.txt: %w", err)
 
 	// handling situations when src doesn't end with .js
 	fName := regexp.MustCompile(`[\w-&]+(\.js)?$`)
@@ -109,7 +109,7 @@ func main() {
 		g.Go(func() error {
 			err := app.getJS(app.client, src, app.query, fName)
 			if err != nil {
-				return fmt.Errorf("error while processing %v: %v", src, err)
+				return fmt.Errorf("error while processing %v: %w", src, err)
 			}
 			return nil
 		})
@@ -125,9 +125,9 @@ func main() {
 	// save search results (if applicable)
 	if cfg.term != "" || cfg.terms != "" || cfg.regex != "" {
 		err := os.Mkdir("searchResults", 0755)
-		app.assertErrorToNilf("could not create folder to store search results: %v", err)
-		err = app.writeSearchResults()
-		app.assertErrorToNilf("unable to write search results: %v", err)
+		app.assertErrorToNilf("could not create folder to store search results: %w", err)
+		err = app.writeSearchResults(app.searches.Searches)
+		app.assertErrorToNilf("unable to write search results: %w", err)
 	}
 
 	fmt.Println()

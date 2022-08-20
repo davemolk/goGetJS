@@ -9,7 +9,7 @@ goGetJS extracts, searches, and saves JavaScript files. Includes an optional bro
 * goGetJS scrapes a given page for script tags, visits each src, and writes the contents to an individual file.
 * All src are also saved to a text file.
 * If a script tag doesn't include an src attribute, goGetJS scrapes everything between the script tags and writes the contents to an individual file.
-* goGetJS (optionally) uses playwright to handle JavaScript-heavy sites and retrieve async scripts. Use -b=true.
+* goGetJS (optionally) uses playwright to handle JavaScript-heavy sites and retrieve async scripts. Use -b.
 * Add some extra waiting time with -ew to grab those longer loading async scripts.
 * Use -w, -r, and -f, respectively, to scan each script for a specific word, with a regular expression, or with a list of words (input as a file).
 

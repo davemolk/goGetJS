@@ -21,7 +21,7 @@ func (app *application) parseDoc(r io.Reader, url string, query interface{}) ([]
 	var srcs []string
 	doc, err := goquery.NewDocumentFromReader(r)
 	if err != nil {
-		return srcs, 0, fmt.Errorf("could not create goquery doc for %v: %v", url, err)
+		return srcs, 0, fmt.Errorf("could not create goquery doc for %v: %w", url, err)
 	}
 
 	anonCount := 0
@@ -63,14 +63,14 @@ func (app *application) parseDoc(r io.Reader, url string, query interface{}) ([]
 	// if no src found, write the page to a file for debugging purposes
 	html, err := doc.Html()
 	if err != nil {
-		return srcs, anonCount, fmt.Errorf("unable to get HTML for %v: %v", url, err)
+		return srcs, anonCount, fmt.Errorf("unable to get HTML for %v: %w", url, err)
 	}
 	err = app.writePage(html, url)
 	if err != nil {
-		return srcs, anonCount, fmt.Errorf("unable to write HTML for %v: %v", url, err)
+		return srcs, anonCount, fmt.Errorf("unable to write HTML for %v: %w", url, err)
 	}
 
-	return srcs, anonCount, fmt.Errorf("no src found at %v: %v", url, err)
+	return srcs, anonCount, fmt.Errorf("no src found at %v: %w", url, err)
 }
 
 // getJS takes in a url to a javascript file, extracts the contents, and writes them to an individual javascript file.
@@ -78,14 +78,14 @@ func (app *application) getJS(client *http.Client, url string, query interface{}
 	app.infoLog.Println("extracting from:", url)
 	resp, err := app.makeRequest(url, client)
 	if err != nil {
-		return fmt.Errorf("could not make request at %s: %v", url, err)
+		return fmt.Errorf("could not make request at %s: %w", url, err)
 	}
 
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Errorf("could not read response body for %s: %v", url, err)
+		return fmt.Errorf("could not read response body for %s: %w", url, err)
 	}
 
 	// retry (uses short timeout and allows redirects)
@@ -100,7 +100,7 @@ func (app *application) getJS(client *http.Client, url string, query interface{}
 	if script != "" {
 		err := app.writeScript(script, url, r)
 		if err != nil {
-			return fmt.Errorf("unable to write script file: %v", err)
+			return fmt.Errorf("unable to write script file: %w", err)
 		}
 		return nil
 	}

@@ -25,7 +25,7 @@ func (app *application) makeClient(timeout int) *http.Client {
 func (app *application) makeRequest(url string, client *http.Client) (*http.Response, error) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return nil, fmt.Errorf("unable to create request for %v: %v", url, err)
+		return nil, fmt.Errorf("unable to create request for %v: %w", url, err)
 	}
 
 	uAgent := app.randomUA()
@@ -33,7 +33,7 @@ func (app *application) makeRequest(url string, client *http.Client) (*http.Resp
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("unable to get response for %v: %v", url, err)
+		return nil, fmt.Errorf("unable to get response for %v: %w", url, err)
 	}
 	if resp.StatusCode != 200 {
 		resp.Body.Close()
