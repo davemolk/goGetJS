@@ -133,10 +133,10 @@ func (app *application) searchScript(query interface{}, url, script string) {
 		for _, term := range q {
 			wg.Add(1)
 			go func(t string) {
+				defer wg.Done()
 				if strings.Contains(script, t) {
 					app.searches.Store(url, t)
 				}
-				wg.Done()
 			}(term)
 		}
 		wg.Wait()

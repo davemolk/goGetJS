@@ -49,8 +49,8 @@ func (app *application) browser(url string, browserTimeout *float64, extraWait i
 	}
 
 	if extraWait > 0 {
-		time.Sleep(time.Duration(extraWait) * time.Second)
-		app.infoLog.Printf("slept for %d seconds\n", extraWait)
+		time.Sleep(time.Duration(extraWait) * time.Millisecond)
+		app.infoLog.Printf("slept for %d milliseconds\n", extraWait)
 	}
 
 	htmlDoc, err := page.Content()

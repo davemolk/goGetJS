@@ -37,12 +37,12 @@ type application struct {
 func main() {
 	var cfg config
 
-	flag.Float64Var(&cfg.browserTimeout, "bt", 10000, "browser timeout")
-	flag.IntVar(&cfg.extraWait, "ew", 0, "additional wait (in seconds) when using a browser. default 0 seconds")
+	flag.Float64Var(&cfg.browserTimeout, "bt", 10000, "browser timeout (in ms). default 10000")
+	flag.IntVar(&cfg.extraWait, "ew", 0, "additional wait (in ms) when using a browser. default 0")
 	flag.StringVar(&cfg.regex, "regex", "", "search JavaScript with a regex expression")
 	flag.StringVar(&cfg.term, "term", "", "search JavaScript for a particular term")
 	flag.StringVar(&cfg.terms, "terms", "", "upload a file containing a list of search terms")
-	flag.IntVar(&cfg.timeout, "t", 5, "timeout (in seconds) for request. default 5 seconds)")
+	flag.IntVar(&cfg.timeout, "t", 5000, "timeout (in ms) for request. default 5000")
 	flag.StringVar(&cfg.url, "u", "", "url for getting JavaScript")
 	flag.BoolVar(&cfg.useBrowser, "b", false, "use playwright to handle JS-intensive sites. default false")
 

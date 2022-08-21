@@ -13,7 +13,7 @@ import (
 // makeClient takes in a flag-specified timeout and returns an *http.Client.
 func (app *application) makeClient(timeout int) *http.Client {
 	return &http.Client{
-		Timeout: time.Duration(timeout) * time.Second,
+		Timeout: time.Duration(timeout) * time.Millisecond,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
