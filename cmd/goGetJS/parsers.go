@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -21,7 +22,7 @@ func (app *application) parseDoc(r io.Reader, url string, query interface{}) ([]
 	var srcs []string
 	doc, err := goquery.NewDocumentFromReader(r)
 	if err != nil {
-		return srcs, 0, fmt.Errorf("could not create goquery doc for %v: %w", url, err)
+		return srcs, 0, fmt.Errorf("goquery doc creation error for %v: %w", url, err)
 	}
 
 	anonCount := 0
@@ -50,9 +51,10 @@ func (app *application) parseDoc(r io.Reader, url string, query interface{}) ([]
 			scriptName := fmt.Sprintf("anon%s.js", strconv.Itoa(anonCount))
 			app.searchScript(query, scriptName, script)
 			if err := os.WriteFile("data/"+scriptName, scriptByte, 0644); err != nil {
-				app.errorLog.Printf("could not write %q: %v", scriptName, err)
+				app.errorLog.Printf("could not write %q: %v\n", scriptName, err)
 				anonCount--
 			}
+			app.infoLog.Printf("writing: %v\n", scriptName)
 		}
 	})
 
@@ -63,14 +65,14 @@ func (app *application) parseDoc(r io.Reader, url string, query interface{}) ([]
 	// if no src found, write the page to a file for debugging purposes
 	html, err := doc.Html()
 	if err != nil {
-		return srcs, anonCount, fmt.Errorf("unable to get HTML for %v: %w", url, err)
+		return srcs, anonCount, fmt.Errorf("HTML extraction error for %v: %w", url, err)
 	}
 	err = app.writePage(html, url)
 	if err != nil {
-		return srcs, anonCount, fmt.Errorf("unable to write HTML for %v: %w", url, err)
+		return srcs, anonCount, fmt.Errorf("HTML writing error for %v: %w", url, err)
 	}
 
-	return srcs, anonCount, fmt.Errorf("no src found at %v: %w", url, err)
+	return srcs, anonCount, errors.New("no src found")
 }
 
 // getJS takes in a url to a javascript file, extracts the contents, and writes them to an individual javascript file.
@@ -78,19 +80,20 @@ func (app *application) getJS(client *http.Client, url string, query interface{}
 	app.infoLog.Println("extracting from:", url)
 	resp, err := app.makeRequest(url, client)
 	if err != nil {
-		return fmt.Errorf("could not make request at %s: %w", url, err)
+		return fmt.Errorf("request error for %v: %w", url, err)
 	}
 
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Errorf("could not read response body for %s: %w", url, err)
+		return fmt.Errorf("resp.Body read error for %v: %w", url, err)
 	}
 
 	// retry (uses short timeout and allows redirects)
 	if len(body) == 0 {
-		go app.quickRetry(url, query, r)
+		app.infoLog.Printf("retrying %v\n", url)
+		app.quickRetry(url, query, r)
 	}
 
 	script := string(body)
@@ -100,7 +103,7 @@ func (app *application) getJS(client *http.Client, url string, query interface{}
 	if script != "" {
 		err := app.writeScript(script, url, r)
 		if err != nil {
-			return fmt.Errorf("unable to write script file: %w", err)
+			return fmt.Errorf("write error for %v: %w", url, err)
 		}
 		return nil
 	}
@@ -112,6 +115,7 @@ func (app *application) getJS(client *http.Client, url string, query interface{}
 // any found terms (and the url they were found on) to the SearchMap for
 // later writing to a file
 func (app *application) searchScript(query interface{}, url, script string) {
+	app.infoLog.Printf("searching: %v\n", url)
 	switch q := query.(type) {
 	case *regexp.Regexp:
 		savedTerm := make(map[string]bool)

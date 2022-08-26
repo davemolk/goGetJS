@@ -19,12 +19,12 @@ func (app *application) browser(url string, browserTimeout *float64, extraWait i
 
 	pw, err := playwright.Run()
 	if err != nil {
-		return nil, fmt.Errorf("could not start playwright: %w", err)
+		return nil, fmt.Errorf("start playwright error: %w", err)
 	}
 
 	browser, err := pw.Chromium.Launch()
 	if err != nil {
-		return nil, fmt.Errorf("could not launch browswer: %w", err)
+		return nil, fmt.Errorf("launch browser error: %w", err)
 	}
 
 	uAgent := app.randomUA()
@@ -32,12 +32,12 @@ func (app *application) browser(url string, browserTimeout *float64, extraWait i
 		UserAgent: playwright.String(uAgent),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("could not create browser context: %w", err)
+		return nil, fmt.Errorf("create browser context error: %w", err)
 	}
 
 	page, err := context.NewPage()
 	if err != nil {
-		return nil, fmt.Errorf("could not create browser page: %w", err)
+		return nil, fmt.Errorf("create browser page error: %w", err)
 	}
 
 	_, err = page.Goto(url, playwright.PageGotoOptions{
@@ -45,7 +45,7 @@ func (app *application) browser(url string, browserTimeout *float64, extraWait i
 		WaitUntil: playwright.WaitUntilStateNetworkidle,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("could not go to %v: %w", url, err)
+		return nil, fmt.Errorf("browser navigation error: %w", err)
 	}
 
 	if extraWait > 0 {
@@ -55,17 +55,17 @@ func (app *application) browser(url string, browserTimeout *float64, extraWait i
 
 	htmlDoc, err := page.Content()
 	if err != nil {
-		return nil, fmt.Errorf("could not get html from playwright: %w", err)
+		return nil, fmt.Errorf("playwright html extraction error: %w", err)
 	}
 
 	err = browser.Close()
 	if err != nil {
-		return nil, fmt.Errorf("could not close browser: %w", err)
+		return nil, fmt.Errorf("close browser error: %w", err)
 	}
 
 	err = pw.Stop()
 	if err != nil {
-		return nil, fmt.Errorf("could not stop playwright: %w", err)
+		return nil, fmt.Errorf("stop playwright error: %w", err)
 	}
 
 	app.infoLog.Println("browser finished")

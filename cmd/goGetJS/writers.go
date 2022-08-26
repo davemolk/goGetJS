@@ -17,7 +17,7 @@ func (app *application) writeScript(script, url string, fileNamer *regexp.Regexp
 	scriptByte := []byte(script)
 	data := append(urlByte, scriptByte...)
 	if err := os.WriteFile("data/"+fName, data, 0644); err != nil {
-		return fmt.Errorf("cannot write script %q: %w", fName, err)
+		return fmt.Errorf("cannot write %q: %w", fName, err)
 	}
 	return nil
 }
@@ -26,12 +26,12 @@ func (app *application) writeScript(script, url string, fileNamer *regexp.Regexp
 func (app *application) writeFile(scripts []string, fName string) error {
 	f, err := os.Create(fName)
 	if err != nil {
-		return fmt.Errorf("could not create %q: %w", fName, err)
+		return fmt.Errorf("file creation error: %w", err)
 	}
 	defer f.Close()
 	for _, v := range scripts {
 		if _, err := fmt.Fprintln(f, v); err != nil {
-			return fmt.Errorf("unable to write %q in %q: %w", v, fName, err)
+			return fmt.Errorf("file write error: %w", err)
 		}
 	}
 	return nil
@@ -45,7 +45,7 @@ func (app *application) writePage(s, myURL string) error {
 	myURL = strings.TrimSuffix(myURL, "/")
 	u, err := url.Parse(myURL)
 	if err != nil {
-		return fmt.Errorf("could not parse %q: %w", myURL, err)
+		return fmt.Errorf("parse error for %v: %w", myURL, err)
 	}
 
 	switch {
@@ -60,20 +60,20 @@ func (app *application) writePage(s, myURL string) error {
 
 	err = os.Mkdir("debug", 0755)
 	if err != nil {
-		return fmt.Errorf("could not create folder to store html for debugging: %w", err)
+		return fmt.Errorf("debug folder creation error: %w", err)
 	}
 	f, err := os.Create("debug/" + n + ".html")
 	if err != nil {
-		return fmt.Errorf("unable to create file for %q: %w", myURL, err)
+		return fmt.Errorf("debug file creation error for %v: %w", myURL, err)
 	}
 	defer f.Close()
 	_, err = f.WriteString(s)
 	if err != nil {
-		return fmt.Errorf("unable to write file for %q: %w", myURL, err)
+		return fmt.Errorf("write file error for %v: %w", myURL, err)
 	}
 	err = f.Sync()
 	if err != nil {
-		return fmt.Errorf("unable to perform sync for %q: %w", myURL, err)
+		return fmt.Errorf("sync error for %v: %w", myURL, err)
 	}
 	return nil
 }
@@ -94,20 +94,20 @@ func (app *application) writeSearchResults(data map[string][]string) error {
 
 	sr, err := json.Marshal(data)
 	if err != nil {
-		return fmt.Errorf("unable to marshal search results: %w", err)
+		return fmt.Errorf("search results marshal error: %w", err)
 	}
 	f, err := os.Create(fmt.Sprintf("searchResults/%v", n))
 	if err != nil {
-		return fmt.Errorf("unable to create file for search results: %w", err)
+		return fmt.Errorf("search results file error: %w", err)
 	}
 	defer f.Close()
 	_, err = f.Write(sr)
 	if err != nil {
-		return fmt.Errorf("unable to write search results to file: %w", err)
+		return fmt.Errorf("search results write error: %w", err)
 	}
 	err = f.Sync()
 	if err != nil {
-		return fmt.Errorf("unable to perform sync for search results: %w", err)
+		return fmt.Errorf("search results sync error: %w", err)
 	}
 	return nil
 }

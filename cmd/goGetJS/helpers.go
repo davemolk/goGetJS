@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -9,9 +10,9 @@ import (
 )
 
 // assertErrorToNilf is a simple helper function for error handling.
-func (app *application) assertErrorToNilf(msg string, err error) {
+func (app *application) assertErrorToNilf(err error) {
 	if err != nil {
-		app.errorLog.Fatalf(msg, err)
+		app.errorLog.Fatal(err)
 	}
 }
 
@@ -20,7 +21,7 @@ func (app *application) readInputFile(n string) ([]string, error) {
 	var lines []string
 	f, err := os.Open(n)
 	if err != nil {
-		return lines, fmt.Errorf("could not open input file: %w", err)
+		return lines, fmt.Errorf("open input file error: %w", err)
 	}
 	defer f.Close()
 	scanner := bufio.NewScanner(f)
@@ -31,12 +32,12 @@ func (app *application) readInputFile(n string) ([]string, error) {
 }
 
 // getInput checks if the user has supplied a url via stdin.
-// If no url is found, goGetJS will exit (getInput is only called 
+// If no url is found, goGetJS will exit (getInput is only called
 // in the event that no url has been supplied via flag.)
 func (app *application) getInput() error {
 	stat, err := os.Stdin.Stat()
 	if err != nil {
-		return fmt.Errorf("stdin path error: %w", err)
+		return fmt.Errorf("stdin read error: %w", err)
 	}
 
 	if (stat.Mode() & os.ModeCharDevice) == 0 {
@@ -46,7 +47,7 @@ func (app *application) getInput() error {
 		}
 	}
 	if app.config.url == "" {
-		app.errorLog.Fatalf("must provide a url")
+		return errors.New("must provide a url")
 	}
 	return nil
 }
@@ -55,7 +56,7 @@ func (app *application) getInput() error {
 func (app *application) getBaseURL(myUrl string) (string, error) {
 	u, err := url.Parse(myUrl)
 	if err != nil {
-		return "", fmt.Errorf("unable to parse input url %s: %w", myUrl, err)
+		return "", fmt.Errorf("unable to parse url: %w", err)
 	}
 	u.Path = ""
 	u.RawQuery = ""
@@ -72,7 +73,9 @@ func (app *application) getQuery() {
 		app.query = re
 	} else if len(app.config.terms) > 0 {
 		query, err := app.readInputFile(app.config.terms)
-		app.assertErrorToNilf("unable to get input for query %w", err)
+		if err != nil {
+			app.errorLog.Fatal(err)
+		}
 		app.query = query
 	} else {
 		app.query = app.config.term
