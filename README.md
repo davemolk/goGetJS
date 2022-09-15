@@ -56,7 +56,7 @@ First, you'll need to [install go](https://golang.org/doc/install).
 
 Then run this command to download + compile goGetJS:
 ```
-go install github.com/davemolk/goGetJS@latest
+go install github.com/davemolk/goGetJS/cmd/goGetJS@latest
 ```
 
 ## Additional Notes
