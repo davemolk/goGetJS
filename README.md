@@ -64,6 +64,7 @@ go install github.com/davemolk/goGetJS@latest
 * Occasionally, an src will link to an empty page. These are automatically retried (set a timeout for these retries with -rt). Typically, these pages are legitimately blank, causing the number of saved files printed to the terminal to be fewer than the number of processed files. Sometimes we're lucky though, and the successful retry will be searched and saved.
 
 ## Changelog
+*    **2022-09-15** : Release 1.0. 
 *    **2022-08-26** : Add proxy, redirect, and rt flags. Refactor client creation. Improve error handling throughout. 
 *    **2022-08-20** : Move from %v to %w for handling errors with fmt.Errorf. Move everything to milliseconds.
 
