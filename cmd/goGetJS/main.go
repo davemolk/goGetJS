@@ -72,19 +72,19 @@ func main() {
 
 	if app.config.url == "" {
 		err := app.getInput()
-		app.assertErrorToNilf(err)
+		app.assertErrorToNil(err)
 	}
 
 	baseURL, err := app.getBaseURL(cfg.url)
-	app.assertErrorToNilf(err)
+	app.assertErrorToNil(err)
 	app.baseURL = baseURL
 
 	err = os.Mkdir("data", 0755)
-	app.assertErrorToNilf(err)
+	app.assertErrorToNil(err)
 
 	if cfg.term != "" || cfg.terms != "" || cfg.regex != "" {
 		err := os.Mkdir("searchResults", 0755)
-		app.assertErrorToNilf(err)
+		app.assertErrorToNil(err)
 	}
 
 	app.client = app.makeClient(cfg.timeout, cfg.proxy, cfg.redirect)
@@ -96,21 +96,21 @@ func main() {
 	switch {
 	case cfg.useBrowser:
 		reader, err = app.browser(cfg.url, &cfg.browserTimeout, cfg.extraWait, app.client)
-		app.assertErrorToNilf(err)
+		app.assertErrorToNil(err)
 	default:
 		resp, err := app.makeRequest(cfg.url, app.client)
-		app.assertErrorToNilf(err)
+		app.assertErrorToNil(err)
 		defer resp.Body.Close()
 		reader = resp.Body
 	}
 
 	// parse for src, writing javascript files without src
 	srcs, anonCount, err := app.parseDoc(reader, cfg.url, app.query)
-	app.assertErrorToNilf(err)
+	app.assertErrorToNil(err)
 
 	// write src text file
 	err = app.writeFile(srcs, "scriptSRC.txt")
-	app.assertErrorToNilf(err)
+	app.assertErrorToNil(err)
 
 	// handling situations when src doesn't end with .js
 	fName := regexp.MustCompile(`[\w-&]+(\.js)?$`)
@@ -138,7 +138,7 @@ func main() {
 	// save search results (if applicable)
 	if cfg.term != "" || cfg.terms != "" || cfg.regex != "" {
 		err = app.writeSearchResults(app.searches.Searches)
-		app.assertErrorToNilf(err)
+		app.assertErrorToNil(err)
 	}
 
 	fmt.Println()

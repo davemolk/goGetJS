@@ -80,7 +80,6 @@ func (app *application) quickRetry(url string, query interface{}, r *regexp.Rege
 	resp, err := app.makeRequest(url, app.retryClient)
 	if err != nil {
 		app.errorLog.Printf("retry request error for %v: %v\n", url, err)
-		resp.Body.Close()
 		return
 	}
 	defer resp.Body.Close()

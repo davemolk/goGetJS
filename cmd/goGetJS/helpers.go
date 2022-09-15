@@ -9,8 +9,8 @@ import (
 	"regexp"
 )
 
-// assertErrorToNilf is a simple helper function for error handling.
-func (app *application) assertErrorToNilf(err error) {
+// assertErrorToNil is a simple helper function for error handling.
+func (app *application) assertErrorToNil(err error) {
 	if err != nil {
 		app.errorLog.Fatal(err)
 	}

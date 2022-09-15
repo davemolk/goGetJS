@@ -3,7 +3,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/davemolk/goGetJS)](https://goreportcard.com/report/github.com/davemolk/goGetJS)
 [![contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](https://github.com/davemolk/goGetJS/issues)
 
-goGetJS extracts, searches, and saves JavaScript files. Includes an optional chromium browser (via playwright) for dealing with JavaScript-heavy sites.
+goGetJS extracts, searches, and saves JavaScript files. Includes an optional chromium headless browser (playwright) for dealing with JavaScript-heavy sites.
 
 ![demo](demo.gif)
 
@@ -16,12 +16,12 @@ goGetJS extracts, searches, and saves JavaScript files. Includes an optional chr
 * Use -term, -regex, and -terms, respectively, to scan each script for a specific word, with a regular expression, or with a list of words (input as a file).
 * goGetJS does not follow redirects by default, but this can be toggled with -redirect=true.
 
-## Example Usages
+## Example Usages (use browser and search each script for a list of terms in search.txt)
 ```
-go run ./cmd/goGetJS -u=https://go.dev -b -terms=search.txt
+go run ./cmd/goGetJS -u https://go.dev -b -terms search.txt
 ```
 ```
-echo https://go.dev | goGetJS -b -terms=search.txt
+echo https://go.dev | goGetJS -b -terms search.txt
 ```
 
 ## Command-line Options
@@ -51,9 +51,17 @@ Usage of goGetJS:
     	URL to extract JS files from.
 ```
 
+## Installation
+First, you'll need to [install go](https://golang.org/doc/install).
+
+Then run this command to download + compile goGetJS:
+```
+go install github.com/davemolk/goGetJS@latest
+```
+
 ## Additional Notes
 * goGetJS names JavaScript files with ```fName := regexp.MustCompile(`[\w-&]+(\.js)?$`)```. Most scripts play nice, but those that don't are still saved. Each saved script has the full URL prepended to the file.
-* Occasionally, an src will link to an empty page. These are automatically retried and will sometimes get a script on that second attempt (which is searched and saved). Set a timeout for these retries with -rt. More often, these pages are legitimately blank, causing the number of saved files printed to the terminal to be fewer than the number of processed files.
+* Occasionally, an src will link to an empty page. These are automatically retried (set a timeout for these retries with -rt). Typically, these pages are legitimately blank, causing the number of saved files printed to the terminal to be fewer than the number of processed files. Sometimes we're lucky though, and the successful retry will be searched and saved.
 
 ## Changelog
 *    **2022-08-26** : Add proxy, redirect, and rt flags. Refactor client creation. Improve error handling throughout. 
